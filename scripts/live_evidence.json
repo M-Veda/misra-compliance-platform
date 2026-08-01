@@ -1,0 +1,322 @@
+{
+  "step1": {
+    "total": 22,
+    "rules": [
+      "10.3",
+      "12.1",
+      "14.4",
+      "16.3",
+      "16.4",
+      "2.2",
+      "2.7",
+      "7.1",
+      "8.4",
+      "8.7"
+    ]
+  },
+  "bulk_apply": {
+    "ops": 22,
+    "parse_valid": true,
+    "len": 3365
+  },
+  "reanalysis": {
+    "remaining": 0,
+    "rules": []
+  },
+  "report": {
+    "file": "",
+    "bytes": 0
+  },
+  "per_rule": {
+    "2.2": {
+      "violation": {
+        "rule_number": "2.2",
+        "line": 59,
+        "message": "Unreachable code: statement follows an unconditional control transfer (return/break/continue/goto).",
+        "snippet": "return 2;               /* Rule 2.2: unreachable */"
+      },
+      "preview": {
+        "violation_id": "2_2_Unknown___global___bee93080",
+        "rule_number": "2.2",
+        "file": "multi_rule_test.c",
+        "line": 59,
+        "column": 9,
+        "original_start_line": 59,
+        "original_end_line": 59,
+        "original_source": "        return 2;               /* Rule 2.2: unreachable */",
+        "replacement_source": "        /* Dead code removed (MISRA Rule 2.2) */",
+        "unified_diff": "--- multi_rule_test.c:59\n+++ Refactored Code\n@@ -1 +1 @@\n-        return 2;               /* Rule 2.2: unreachable */\n\n+        /* Dead code removed (MISRA Rule 2.2) */\n",
+        "explanation": "MISRA Rule 2.2 \u2014 Unreachable or dead code detected on line 59. The automated patch erases the dead statement while maintaining indentation and line numbering.",
+        "confidence": 1.0,
+        "patch_type": "AUTO_PATCH",
+        "applies_cleanly": true,
+        "can_autopatch": true,
+        "affected_lines": [
+          59
+        ],
+        "compliance_gain": 10.0
+      }
+    },
+    "2.7": {
+      "violation": {
+        "rule_number": "2.7",
+        "line": 65,
+        "message": "Parameter 'unused_param' is unused.",
+        "snippet": "int test_unused_param(int a, int unused_param) {"
+      },
+      "preview": {
+        "violation_id": "2_7_Unknown___global___281b912e",
+        "rule_number": "2.7",
+        "file": "multi_rule_test.c",
+        "line": 65,
+        "column": 34,
+        "original_start_line": 65,
+        "original_end_line": 65,
+        "original_source": "int test_unused_param(int a, int unused_param) {",
+        "replacement_source": "int test_unused_param(int a, int unused_param) {\n    (void)unused_param;",
+        "unified_diff": "--- multi_rule_test.c:65\n+++ Refactored Code\n@@ -1 +1,2 @@\n int test_unused_param(int a, int unused_param) {\n\n+    (void)unused_param;\n",
+        "explanation": "MISRA Rule 2.7 \u2014 Parameter 'unused_param' is declared but never read. The automated patch inserts '(void)unused_param;' at the top of the function body to explicitly suppress unused parameter warnings without changing runtime semantics.",
+        "confidence": 1.0,
+        "patch_type": "AUTO_PATCH",
+        "applies_cleanly": true,
+        "can_autopatch": true,
+        "affected_lines": [
+          65
+        ],
+        "compliance_gain": 10.0
+      }
+    },
+    "7.1": {
+      "violation": {
+        "rule_number": "7.1",
+        "line": 23,
+        "message": "Octal constant '077' used. Octal constants and escape sequences shall not be used.",
+        "snippet": "int mask = 077;             /* Rule 7.1: octal literal 077 */"
+      },
+      "preview": {
+        "violation_id": "7_1_Unknown___global___a3ac11f0",
+        "rule_number": "7.1",
+        "file": "multi_rule_test.c",
+        "line": 23,
+        "column": 16,
+        "original_start_line": 23,
+        "original_end_line": 23,
+        "original_source": "    int mask = 077;             /* Rule 7.1: octal literal 077 */",
+        "replacement_source": "    int mask = 63;             /* Rule 7.1: octal literal 63 */",
+        "unified_diff": "--- multi_rule_test.c:23\n+++ Refactored Code\n@@ -1 +1 @@\n-    int mask = 077;             /* Rule 7.1: octal literal 077 */\n\n+    int mask = 63;             /* Rule 7.1: octal literal 63 */\n",
+        "explanation": "MISRA Rule 7.1 \u2014 Octal constant in expression 'int mask = 077;             /* Rule 7.1: octal literal 077 */' was converted to a compliant decimal representation to prevent misinterpretation.",
+        "confidence": 1.0,
+        "patch_type": "AUTO_PATCH",
+        "applies_cleanly": true,
+        "can_autopatch": true,
+        "affected_lines": [
+          23
+        ],
+        "compliance_gain": 10.0
+      }
+    },
+    "8.4": {
+      "violation": {
+        "rule_number": "8.4",
+        "line": 8,
+        "message": "Function 'compute_sum' defined without a visible prototype.",
+        "snippet": "int compute_sum(int a, int b) {"
+      },
+      "preview": {
+        "violation_id": "8_4_Unknown___global___85b1e4fd",
+        "rule_number": "8.4",
+        "file": "multi_rule_test.c",
+        "line": 8,
+        "column": 5,
+        "original_start_line": 8,
+        "original_end_line": 8,
+        "original_source": "int compute_sum(int a, int b) {",
+        "replacement_source": "int compute_sum(int a, int b);\nint compute_sum(int a, int b) {",
+        "unified_diff": "--- multi_rule_test.c:8\n+++ Refactored Code\n@@ -1 +1,2 @@\n+int compute_sum(int a, int b);\n\n int compute_sum(int a, int b) {\n",
+        "explanation": "MISRA Rule 8.4 \u2014 Function defined with external linkage but missing a visible prototype declaration. The automated patch prepends the prototype declaration 'int compute_sum(int a, int b);' immediately before the function definition.",
+        "confidence": 1.0,
+        "patch_type": "AUTO_PATCH",
+        "applies_cleanly": true,
+        "can_autopatch": true,
+        "affected_lines": [
+          8
+        ],
+        "compliance_gain": 10.0
+      }
+    },
+    "8.7": {
+      "violation": {
+        "rule_number": "8.7",
+        "line": 13,
+        "message": "Global variable 'g_single_use_var' is only referenced in function 'helper_clamp' and should have block scope or internal linkage.",
+        "snippet": "int g_single_use_var = 42;      /* Rule 8.7: global used only in helper_clamp */"
+      },
+      "preview": {
+        "violation_id": "8_7_Unknown___global___6af127ee",
+        "rule_number": "8.7",
+        "file": "multi_rule_test.c",
+        "line": 13,
+        "column": 5,
+        "original_start_line": 13,
+        "original_end_line": 13,
+        "original_source": "int g_single_use_var = 42;      /* Rule 8.7: global used only in helper_clamp */",
+        "replacement_source": "static int g_single_use_var = 42;      /* Rule 8.7: global used only in helper_clamp */",
+        "unified_diff": "--- multi_rule_test.c:13\n+++ Refactored Code\n@@ -1 +1 @@\n-int g_single_use_var = 42;      /* Rule 8.7: global used only in helper_clamp */\n\n+static int g_single_use_var = 42;      /* Rule 8.7: global used only in helper_clamp */\n",
+        "explanation": "MISRA Rule 8.7 \u2014 Global object is only referenced in a single function and should have internal linkage. The automated patch prepends 'static' to restrict its visibility to this translation unit.",
+        "confidence": 1.0,
+        "patch_type": "AUTO_PATCH",
+        "applies_cleanly": true,
+        "can_autopatch": true,
+        "affected_lines": [
+          13
+        ],
+        "compliance_gain": 10.0
+      }
+    },
+    "10.3": {
+      "violation": {
+        "rule_number": "10.3",
+        "line": 50,
+        "message": "Implicit conversion from 'Signed(32bit)' to narrower/different 'Unsigned(32bit)'.",
+        "snippet": "unsigned int u = 10u;"
+      },
+      "preview": {
+        "violation_id": "10_3_Unknown___global___b069dc04",
+        "rule_number": "10.3",
+        "file": "multi_rule_test.c",
+        "line": 50,
+        "column": 18,
+        "original_start_line": 50,
+        "original_end_line": 50,
+        "original_source": "    unsigned int u = 10u;",
+        "replacement_source": "    unsigned int u = (unsigned int)10u;",
+        "unified_diff": "--- multi_rule_test.c:50\n+++ Refactored Code\n@@ -1 +1 @@\n-    unsigned int u = 10u;\n\n+    unsigned int u = (unsigned int)10u;\n",
+        "explanation": "MISRA Rule 10.3 \u2014 Implicit essential type conversion. The patch adds an explicit cast to make the type conversion explicit and compliant.",
+        "confidence": 1.0,
+        "patch_type": "AUTO_PATCH",
+        "applies_cleanly": true,
+        "can_autopatch": true,
+        "affected_lines": [
+          50
+        ],
+        "compliance_gain": 10.0
+      }
+    },
+    "12.1": {
+      "violation": {
+        "rule_number": "12.1",
+        "line": 43,
+        "message": "Operator precedence is not explicit for '+' and '*'.",
+        "snippet": "int x = a + b * c;          /* Rule 12.1: unclear precedence */"
+      },
+      "preview": {
+        "violation_id": "12_1_Unknown___global___5292713c",
+        "rule_number": "12.1",
+        "file": "multi_rule_test.c",
+        "line": 43,
+        "column": 13,
+        "original_start_line": 43,
+        "original_end_line": 43,
+        "original_source": "    int x = a + b * c;          /* Rule 12.1: unclear precedence */",
+        "replacement_source": "    int x = a + (b * c);          /* Rule 12.1: unclear precedence */",
+        "unified_diff": "--- multi_rule_test.c:43\n+++ Refactored Code\n@@ -1 +1 @@\n-    int x = a + b * c;          /* Rule 12.1: unclear precedence */\n\n+    int x = a + (b * c);          /* Rule 12.1: unclear precedence */\n",
+        "explanation": "MISRA Rule 12.1 \u2014 Operator precedence is not explicit in expression. The patch adds explicit parentheses around sub-expressions to clarify evaluation order.",
+        "confidence": 1.0,
+        "patch_type": "AUTO_PATCH",
+        "applies_cleanly": true,
+        "can_autopatch": true,
+        "affected_lines": [
+          43
+        ],
+        "compliance_gain": 10.0
+      }
+    },
+    "14.4": {
+      "violation": {
+        "rule_number": "14.4",
+        "line": 31,
+        "message": "Condition of 'while' statement is not essentially Boolean.",
+        "snippet": "while (count) {             /* Rule 14.4: count is int, not bool */"
+      },
+      "preview": {
+        "violation_id": "14_4_Unknown___global___cfc228e5",
+        "rule_number": "14.4",
+        "file": "multi_rule_test.c",
+        "line": 31,
+        "column": 12,
+        "original_start_line": 31,
+        "original_end_line": 31,
+        "original_source": "    while (count) {             /* Rule 14.4: count is int, not bool */",
+        "replacement_source": "    while (count != 0) {             /* Rule 14.4: count is int, not bool */",
+        "unified_diff": "--- multi_rule_test.c:31\n+++ Refactored Code\n@@ -1 +1 @@\n-    while (count) {             /* Rule 14.4: count is int, not bool */\n\n+    while (count != 0) {             /* Rule 14.4: count is int, not bool */\n",
+        "explanation": "MISRA Rule 14.4 \u2014 Controlling expression of if/while/for statement is not essentially Boolean. The patch rewrites the controlling expression to an explicit Boolean comparison (e.g. `count != 0`), preserving exact statement formatting and surrounding code.",
+        "confidence": 1.0,
+        "patch_type": "AUTO_PATCH",
+        "applies_cleanly": true,
+        "can_autopatch": true,
+        "affected_lines": [
+          31
+        ],
+        "compliance_gain": 10.0
+      }
+    },
+    "16.3": {
+      "violation": {
+        "rule_number": "16.3",
+        "line": 74,
+        "message": "Switch clause (case) is non-empty and does not end with an unconditional break statement.",
+        "snippet": "result = 10;        /* Rule 16.3: missing break */"
+      },
+      "preview": {
+        "violation_id": "16_3_Unknown___global___6c411595",
+        "rule_number": "16.3",
+        "file": "multi_rule_test.c",
+        "line": 74,
+        "column": 13,
+        "original_start_line": 74,
+        "original_end_line": 74,
+        "original_source": "            result = 10;        /* Rule 16.3: missing break */",
+        "replacement_source": "            result = 10;        /* Rule 16.3: missing break */\n            break;",
+        "unified_diff": "--- multi_rule_test.c:74\n+++ Refactored Code\n@@ -1 +1,2 @@\n             result = 10;        /* Rule 16.3: missing break */\n\n+            break;\n",
+        "explanation": "MISRA Rule 16.3 \u2014 Added an explicit `break;` statement at the end of the switch clause to prevent unintentional fall-through behavior.",
+        "confidence": 1.0,
+        "patch_type": "AUTO_PATCH",
+        "applies_cleanly": true,
+        "can_autopatch": true,
+        "affected_lines": [
+          74
+        ],
+        "compliance_gain": 10.0
+      }
+    },
+    "16.4": {
+      "violation": {
+        "rule_number": "16.4",
+        "line": 72,
+        "message": "Switch statement does not contain a default clause.",
+        "snippet": "switch (mode) {             /* Rule 16.4: missing default clause */"
+      },
+      "preview": {
+        "violation_id": "16_4_Unknown___global___2dc0d649",
+        "rule_number": "16.4",
+        "file": "multi_rule_test.c",
+        "line": 72,
+        "column": 5,
+        "original_start_line": 72,
+        "original_end_line": 72,
+        "original_source": "    switch (mode) {             /* Rule 16.4: missing default clause */",
+        "replacement_source": "    switch (mode) {             /* Rule 16.4: missing default clause */\n        default:\n            break;",
+        "unified_diff": "--- multi_rule_test.c:72\n+++ Refactored Code\n@@ -1 +1,3 @@\n     switch (mode) {             /* Rule 16.4: missing default clause */\n\n+        default:\n\n+            break;\n",
+        "explanation": "MISRA Rule 16.4 \u2014 Appended a `default:` clause with `break;` to the switch statement to guarantee all unhandled conditions have explicit control flow.",
+        "confidence": 1.0,
+        "patch_type": "AUTO_PATCH",
+        "applies_cleanly": true,
+        "can_autopatch": true,
+        "affected_lines": [
+          72
+        ],
+        "compliance_gain": 10.0
+      }
+    }
+  }
+}

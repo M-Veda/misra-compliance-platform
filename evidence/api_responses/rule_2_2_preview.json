@@ -1,0 +1,27 @@
+{
+  "violation_id": "2_2_Unknown___global___420bf6a9",
+  "rule_number": "2.2",
+  "file": "rule_2_2_sample.c",
+  "line": 5,
+  "column": 9,
+  "original_start_line": 5,
+  "original_end_line": 5,
+  "original_source": "        return 99;   /* dead */",
+  "replacement_source": "        /* Dead code removed (MISRA Rule 2.2) */",
+  "unified_diff": "--- rule_2_2_sample.c:5\n+++ Refactored Code\n@@ -1 +1 @@\n-        return 99;   /* dead */\n\n+        /* Dead code removed (MISRA Rule 2.2) */\n",
+  "explanation": "MISRA Rule 2.2 \u2014 Unreachable or dead code detected on line 5. The automated patch erases the dead statement while maintaining indentation and line numbering.",
+  "confidence": 1.0,
+  "patch_type": "AUTO_PATCH",
+  "applies_cleanly": true,
+  "can_autopatch": true,
+  "affected_lines": [
+    5
+  ],
+  "compliance_gain": 10.0,
+  "rule_name": "No dead code",
+  "original_snippet": "        return 99;   /* dead */",
+  "proposed_snippet": "        /* Dead code removed (MISRA Rule 2.2) */",
+  "diff": "--- rule_2_2_sample.c:5\n+++ Refactored Code\n@@ -1 +1 @@\n-        return 99;   /* dead */\n\n+        /* Dead code removed (MISRA Rule 2.2) */\n",
+  "expected_compliance_improvement": 10.0,
+  "no_patch_reason": ""
+}

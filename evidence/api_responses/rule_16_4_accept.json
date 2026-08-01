@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "modified_code": "#include <stdio.h>\nint func_no_default(int mode) {\n    int res = 0;\n    switch (mode) {\n        default:\n            break;\n        case 1:\n            res = 10;\n            break;\n        case 2:\n            res = 20;\n            break;\n    }\n    return res;\n}\nint main(void) { return func_no_default(1); }\n",
+  "ops_applied": 1,
+  "ops_skipped_already_applied": 0,
+  "ops_rejected_validation": 0,
+  "ops_rejected_overlap": 0,
+  "parse_valid": true,
+  "conflicts": [],
+  "error": null
+}

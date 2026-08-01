@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "modified_code": "#include <stdio.h>\nint dead_code_func(int x) {\n    if (x > 0) {\n        return 1;\n        /* Dead code removed (MISRA Rule 2.2) */\n    }\n    return 0;\n}\nint main(void) { return dead_code_func(1); }\n",
+  "ops_applied": 1,
+  "ops_skipped_already_applied": 0,
+  "ops_rejected_validation": 0,
+  "ops_rejected_overlap": 0,
+  "parse_valid": true,
+  "conflicts": [],
+  "error": null
+}

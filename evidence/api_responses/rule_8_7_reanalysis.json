@@ -1,0 +1,56 @@
+{
+  "success": true,
+  "file_name": "rule_8_7_sample.c",
+  "source_code": "#include <stdio.h>\nstatic int global_single_use = 42;\nint func_internal(void) { return global_single_use; }\nint main(void) { return func_internal(); }\n",
+  "violations": [
+    {
+      "rule_number": "8.4",
+      "rule_name": "Function prototype required",
+      "severity": "Required",
+      "category": "Declarations",
+      "file": "rule_8_7_sample.c",
+      "line": 3,
+      "column": 5,
+      "message": "Function 'func_internal' defined without a visible prototype.",
+      "code_snippet": "int func_internal(void) { return global_single_use; }",
+      "reason": "Function 'func_internal' has external linkage but no visible prototype declaration in this translation unit.",
+      "suggested_fix": "int func_internal(void);\nint func_internal(void) { return global_single_use; }",
+      "confidence": 1.0,
+      "ast_node_type": "Unknown",
+      "scope_name": "__global__",
+      "ast_start_line": 1,
+      "ast_end_line": 1,
+      "ast_start_col": 1,
+      "ast_end_col": 1,
+      "patch_preview": {
+        "violation_id": "8_4_Unknown___global___8af81a56",
+        "rule_number": "8.4",
+        "file": "rule_8_7_sample.c",
+        "line": 3,
+        "column": 5,
+        "original_start_line": 3,
+        "original_end_line": 3,
+        "original_source": "int func_internal(void) { return global_single_use; }",
+        "replacement_source": "int func_internal(void);\nint func_internal(void) { return global_single_use; }",
+        "unified_diff": "--- rule_8_7_sample.c:3\n+++ Refactored Code\n@@ -1 +1,2 @@\n+int func_internal(void);\n\n int func_internal(void) { return global_single_use; }\n",
+        "explanation": "MISRA Rule 8.4 \u2014 Function defined with external linkage but missing a visible prototype declaration. The automated patch prepends the prototype declaration 'int func_internal(void);' immediately before the function definition.",
+        "confidence": 1.0,
+        "patch_type": "AUTO_PATCH",
+        "applies_cleanly": true,
+        "can_autopatch": true,
+        "affected_lines": [
+          3
+        ],
+        "compliance_gain": 10.0,
+        "rule_name": "Function prototype required",
+        "original_snippet": "int func_internal(void) { return global_single_use; }",
+        "proposed_snippet": "int func_internal(void);\nint func_internal(void) { return global_single_use; }",
+        "diff": "--- rule_8_7_sample.c:3\n+++ Refactored Code\n@@ -1 +1,2 @@\n+int func_internal(void);\n\n int func_internal(void) { return global_single_use; }\n",
+        "expected_compliance_improvement": 10.0,
+        "no_patch_reason": ""
+      },
+      "stable_id": "8_4_Unknown___global___8af81a56"
+    }
+  ],
+  "compliance_score": 90.0
+}

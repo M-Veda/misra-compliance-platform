@@ -1,0 +1,27 @@
+{
+  "violation_id": "2_7_Unknown___global___3eb37309",
+  "rule_number": "2.7",
+  "file": "rule_2_7_sample.c",
+  "line": 2,
+  "column": 38,
+  "original_start_line": 2,
+  "original_end_line": 2,
+  "original_source": "int func_with_unused(int active, int unused_param) {",
+  "replacement_source": "int func_with_unused(int active, int unused_param) {\n    (void)unused_param;",
+  "unified_diff": "--- rule_2_7_sample.c:2\n+++ Refactored Code\n@@ -1 +1,2 @@\n int func_with_unused(int active, int unused_param) {\n\n+    (void)unused_param;\n",
+  "explanation": "MISRA Rule 2.7 \u2014 Parameter 'unused_param' is declared but never read. The automated patch inserts '(void)unused_param;' at the top of the function body to explicitly suppress unused parameter warnings without changing runtime semantics.",
+  "confidence": 1.0,
+  "patch_type": "AUTO_PATCH",
+  "applies_cleanly": true,
+  "can_autopatch": true,
+  "affected_lines": [
+    2
+  ],
+  "compliance_gain": 10.0,
+  "rule_name": "Unused function parameter",
+  "original_snippet": "int func_with_unused(int active, int unused_param) {",
+  "proposed_snippet": "int func_with_unused(int active, int unused_param) {\n    (void)unused_param;",
+  "diff": "--- rule_2_7_sample.c:2\n+++ Refactored Code\n@@ -1 +1,2 @@\n int func_with_unused(int active, int unused_param) {\n\n+    (void)unused_param;\n",
+  "expected_compliance_improvement": 10.0,
+  "no_patch_reason": ""
+}

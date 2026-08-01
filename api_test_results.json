@@ -1,0 +1,89 @@
+{
+  "rules_test": {
+    "supported_rules_count": 10,
+    "rules": [
+      {
+        "rule_number": "2.2",
+        "rule_name": "No dead code",
+        "severity": "Required",
+        "category": "Unused Code",
+        "description": "There shall be no dead code. This includes unreachable code and statements with no side effects."
+      },
+      {
+        "rule_number": "2.7",
+        "rule_name": "Unused function parameter",
+        "severity": "Advisory",
+        "category": "Unused Code",
+        "description": "There shall be no unused parameters in functions."
+      },
+      {
+        "rule_number": "7.1",
+        "rule_name": "Octal constants shall not be used",
+        "severity": "Required",
+        "category": "Literals",
+        "description": "Octal constants and octal escape sequences shall not be used."
+      },
+      {
+        "rule_number": "8.4",
+        "rule_name": "Function prototype required",
+        "severity": "Required",
+        "category": "Declarations",
+        "description": "A compatible declaration shall be visible when an object or function with external linkage is defined."
+      },
+      {
+        "rule_number": "8.7",
+        "rule_name": "Objects should have block scope whenever possible",
+        "severity": "Advisory",
+        "category": "Declarations",
+        "description": "An object with external linkage shall have file scope or block scope if it is only referenced in a single function."
+      },
+      {
+        "rule_number": "10.3",
+        "rule_name": "Implicit narrowing conversion",
+        "severity": "Required",
+        "category": "Types",
+        "description": "The value of an expression shall not be assigned to an object with a narrower essential type or of a different essential type category without an explicit cast."
+      },
+      {
+        "rule_number": "12.1",
+        "rule_name": "Operator precedence should be explicit",
+        "severity": "Advisory",
+        "category": "Expressions",
+        "description": "The precedence of operators within expressions should be made explicit by using parentheses."
+      },
+      {
+        "rule_number": "14.4",
+        "rule_name": "Condition shall be essentially Boolean",
+        "severity": "Required",
+        "category": "Control Flow",
+        "description": "The controlling expression of an if-statement or an iteration-statement shall have essentially Boolean type."
+      },
+      {
+        "rule_number": "16.3",
+        "rule_name": "Switch clause missing break statement",
+        "severity": "Required",
+        "category": "Control Flow",
+        "description": "An unconditional break statement shall terminate every non-empty switch clause."
+      },
+      {
+        "rule_number": "16.4",
+        "rule_name": "Every switch statement shall have a default clause",
+        "severity": "Required",
+        "category": "Control Flow",
+        "description": "Every switch statement shall have a default clause."
+      }
+    ]
+  },
+  "upload_test": {
+    "success": true,
+    "violations_count": 4,
+    "score": 80.0
+  },
+  "patch_test": {
+    "success": true
+  },
+  "report_test": {
+    "success": true,
+    "pdf": "MISRA_Report_rule_10_3_c.pdf"
+  }
+}

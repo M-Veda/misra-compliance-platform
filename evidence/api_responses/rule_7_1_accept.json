@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "modified_code": "#include <stdio.h>\nint func_octal(void) {\n    int x = 15;\n    return x;\n}\nint main(void) { return func_octal(); }\n",
+  "ops_applied": 1,
+  "ops_skipped_already_applied": 0,
+  "ops_rejected_validation": 0,
+  "ops_rejected_overlap": 0,
+  "parse_valid": true,
+  "conflicts": [],
+  "error": null
+}

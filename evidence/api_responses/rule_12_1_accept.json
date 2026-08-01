@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "modified_code": "#include <stdio.h>\nint func_precedence(int x, int y, int z) {\n    int res = x + (y * z);\n    return res;\n}\nint main(void) { return func_precedence(1, 2, 3); }\n",
+  "ops_applied": 1,
+  "ops_skipped_already_applied": 0,
+  "ops_rejected_validation": 0,
+  "ops_rejected_overlap": 0,
+  "parse_valid": true,
+  "conflicts": [],
+  "error": null
+}

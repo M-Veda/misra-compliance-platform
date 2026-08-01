@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "modified_code": "#include <stdio.h>\nint func_nonbool(int count) {\n    if (count != 0) {\n        return 1;\n    }\n    return 0;\n}\nint main(void) { return func_nonbool(5); }\n",
+  "ops_applied": 1,
+  "ops_skipped_already_applied": 0,
+  "ops_rejected_validation": 0,
+  "ops_rejected_overlap": 0,
+  "parse_valid": true,
+  "conflicts": [],
+  "error": null
+}

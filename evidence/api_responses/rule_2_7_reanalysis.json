@@ -1,0 +1,56 @@
+{
+  "success": true,
+  "file_name": "rule_2_7_sample.c",
+  "source_code": "#include <stdio.h>\nint func_with_unused(int active, int unused_param) {\n    (void)unused_param;\n    return active + 5;\n}\nint main(void) { return func_with_unused(1, 2); }\n",
+  "violations": [
+    {
+      "rule_number": "8.4",
+      "rule_name": "Function prototype required",
+      "severity": "Required",
+      "category": "Declarations",
+      "file": "rule_2_7_sample.c",
+      "line": 2,
+      "column": 5,
+      "message": "Function 'func_with_unused' defined without a visible prototype.",
+      "code_snippet": "int func_with_unused(int active, int unused_param) {",
+      "reason": "Function 'func_with_unused' has external linkage but no visible prototype declaration in this translation unit.",
+      "suggested_fix": "int func_with_unused(int active, int unused_param);\nint func_with_unused(int active, int unused_param) {",
+      "confidence": 1.0,
+      "ast_node_type": "Unknown",
+      "scope_name": "__global__",
+      "ast_start_line": 1,
+      "ast_end_line": 1,
+      "ast_start_col": 1,
+      "ast_end_col": 1,
+      "patch_preview": {
+        "violation_id": "8_4_Unknown___global___3eb37309",
+        "rule_number": "8.4",
+        "file": "rule_2_7_sample.c",
+        "line": 2,
+        "column": 5,
+        "original_start_line": 2,
+        "original_end_line": 2,
+        "original_source": "int func_with_unused(int active, int unused_param) {",
+        "replacement_source": "int func_with_unused(int active, int unused_param);\nint func_with_unused(int active, int unused_param) {",
+        "unified_diff": "--- rule_2_7_sample.c:2\n+++ Refactored Code\n@@ -1 +1,2 @@\n+int func_with_unused(int active, int unused_param);\n\n int func_with_unused(int active, int unused_param) {\n",
+        "explanation": "MISRA Rule 8.4 \u2014 Function defined with external linkage but missing a visible prototype declaration. The automated patch prepends the prototype declaration 'int func_with_unused(int active, int unused_param);' immediately before the function definition.",
+        "confidence": 1.0,
+        "patch_type": "AUTO_PATCH",
+        "applies_cleanly": true,
+        "can_autopatch": true,
+        "affected_lines": [
+          2
+        ],
+        "compliance_gain": 10.0,
+        "rule_name": "Function prototype required",
+        "original_snippet": "int func_with_unused(int active, int unused_param) {",
+        "proposed_snippet": "int func_with_unused(int active, int unused_param);\nint func_with_unused(int active, int unused_param) {",
+        "diff": "--- rule_2_7_sample.c:2\n+++ Refactored Code\n@@ -1 +1,2 @@\n+int func_with_unused(int active, int unused_param);\n\n int func_with_unused(int active, int unused_param) {\n",
+        "expected_compliance_improvement": 10.0,
+        "no_patch_reason": ""
+      },
+      "stable_id": "8_4_Unknown___global___3eb37309"
+    }
+  ],
+  "compliance_score": 90.0
+}
