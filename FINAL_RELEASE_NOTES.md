@@ -2,7 +2,7 @@
 
 > **Release Version**: v1.0.0 (Release Baseline 1.0)  
 > **Release Date**: August 1, 2026  
-> **Commit Hash**: `5548c440e36a4d4c14fa4f328af4e435b18428cb`  
+> **Commit Hash**: `60959dc4944f739262812a4e65c0cef101c66960`  
 > **Target Standard**: MISRA C:2012 (Automotive & Embedded Safety-Critical C Subset)
 
 ---

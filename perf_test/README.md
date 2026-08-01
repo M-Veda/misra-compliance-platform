@@ -6,9 +6,9 @@ This directory contains three realistic embedded firmware C programs designed fo
 
 | File Name | Embedded Domain | Line Count | Baseline Violations | Rules Detected | Re-Analysis Score |
 | :--- | :--- | :---: | :---: | :---: | :---: |
-| **`small.c`** | Temperature Sensor Firmware | **86 lines** | **10** | All 10 Rules | **100.0%** (0 remaining) |
-| **`medium.c`** | Multi-Module Embedded Controller | **98 lines** | **15** | All 10 Rules | **70.0%** (3 manual remaining) |
-| **`large.c`** | Industrial Battery Management System (BMS) | **98 lines** | **15** | All 10 Rules | **70.0%** (3 manual remaining) |
+| **`small.c`** | Temperature Sensor Firmware | **58 lines** | **10** | All 10 Rules | **100.0%** (0 remaining) |
+| **`medium.c`** | Multi-Module Embedded Controller | **68 lines** | **15** | All 10 Rules | **70.0%** (3 manual remaining) |
+| **`large.c`** | Industrial Battery Management System (BMS) | **68 lines** | **15** | All 10 Rules | **70.0%** (3 manual remaining) |
 
 ---
 
