@@ -46,9 +46,16 @@ class ChatRequest(BaseModel):
     source_code: str
     violations: List[RuleViolation]
 
-# Directory to save generated reports and temporary files
-REPORTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "generated_reports")
-os.makedirs(REPORTS_DIR, exist_ok=True)
+# Directory structure to save generated reports and artifacts inside project
+BASE_BACKEND_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPORTS_DIR        = os.path.join(BASE_BACKEND_DIR, "generated_reports")
+GENERATED_CODE_DIR = os.path.join(BASE_BACKEND_DIR, "generated_code")
+GENERATED_JSON_DIR = os.path.join(BASE_BACKEND_DIR, "generated_json")
+GENERATED_PDFS_DIR = os.path.join(BASE_BACKEND_DIR, "generated_pdfs")
+GENERATED_ZIPS_DIR = os.path.join(BASE_BACKEND_DIR, "generated_zips")
+
+for d in [REPORTS_DIR, GENERATED_CODE_DIR, GENERATED_JSON_DIR, GENERATED_PDFS_DIR, GENERATED_ZIPS_DIR]:
+    os.makedirs(d, exist_ok=True)
 
 @app.get("/api/rules")
 def get_rules():
@@ -130,10 +137,14 @@ async def upload_c_file(file: UploadFile = File(...)):
 @app.post("/api/explain")
 def explain_violation(request: ExplainRequest):
     """
-    Calls TinyLlama to explain why a violation exists and how the proposed fix resolves it.
+    Calls AI engine to explain why a violation exists and how the proposed fix resolves it.
+    Returns structured JSON with rule-specific engineering analysis.
     """
-    explanation = LLMService.explain_violation(request.violation, request.source_code)
-    return {"explanation": explanation}
+    structured_data = LLMService.get_structured_explanation(request.violation, request.source_code)
+    return {
+        "explanation": json.dumps(structured_data, indent=2),
+        "structured": structured_data
+    }
 
 @app.post("/api/preview-patch")
 def preview_patch(request: PatchRequest):
@@ -237,10 +248,17 @@ def chat_with_agent(request: ChatRequest):
 @app.post("/api/generate-report")
 def generate_report(request: ReportRequest):
     """
-    Generates a PDF compliance report and returns paths/meta.
+    Generates PDF & JSON compliance reports and saves artifacts inside project directories.
     """
-    pdf_filename = f"MISRA_Report_{request.file_name.replace('.', '_')}.pdf"
+    clean_base = request.file_name.replace('.', '_')
+    pdf_filename = f"MISRA_Report_{clean_base}.pdf"
+    json_filename = f"MISRA_Report_{clean_base}.json"
+    code_filename = f"{clean_base}_fixed.c"
+    
     pdf_path = os.path.join(REPORTS_DIR, pdf_filename)
+    pdf_project_path = os.path.join(GENERATED_PDFS_DIR, pdf_filename)
+    json_project_path = os.path.join(GENERATED_JSON_DIR, json_filename)
+    code_project_path = os.path.join(GENERATED_CODE_DIR, code_filename)
     
     try:
         # Generate JSON summary
@@ -253,7 +271,15 @@ def generate_report(request: ReportRequest):
             compliance_score=request.compliance_score
         )
         
-        # Generate PDF report
+        # Save JSON inside project directory
+        with open(json_project_path, 'w', encoding='utf-8') as f:
+            json.dump(json_report, f, indent=2)
+
+        # Save corrected code inside project directory
+        with open(code_project_path, 'w', encoding='utf-8') as f:
+            f.write(request.corrected_code)
+        
+        # Generate PDF report (save to both generated_reports/ and generated_pdfs/)
         ReportGenerator.generate_pdf_report(
             file_name=request.file_name,
             violations=request.violations,
@@ -261,6 +287,15 @@ def generate_report(request: ReportRequest):
             compliance_score=request.compliance_score,
             corrected_code=request.corrected_code,
             output_path=pdf_path
+        )
+
+        ReportGenerator.generate_pdf_report(
+            file_name=request.file_name,
+            violations=request.violations,
+            decisions=request.decisions,
+            compliance_score=request.compliance_score,
+            corrected_code=request.corrected_code,
+            output_path=pdf_project_path
         )
         
         return {
@@ -278,6 +313,8 @@ def download_pdf(filename: str):
     """
     file_path = os.path.join(REPORTS_DIR, filename)
     if not os.path.exists(file_path):
+        file_path = os.path.join(GENERATED_PDFS_DIR, filename)
+    if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="PDF report not found.")
     return FileResponse(file_path, media_type="application/pdf", filename=filename)
 
@@ -292,21 +329,27 @@ class DownloadZipRequest(BaseModel):
 @app.post("/api/download-zip")
 def download_zip(request: DownloadZipRequest):
     """
-    Packages all corrected C files into a downloadable ZIP archive.
+    Packages all corrected C files into a downloadable ZIP archive inside project directories.
     """
     import zipfile
     clean_folder = request.folder_name.replace(" ", "_")
     zip_filename = f"{clean_folder}_fixed.zip"
     zip_path = os.path.join(REPORTS_DIR, zip_filename)
+    zip_project_path = os.path.join(GENERATED_ZIPS_DIR, zip_filename)
     
-    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        for f in request.files:
-            fname = f.file_name.replace('\\', '/')
-            if fname.endswith('.c'):
-                fixed_name = fname[:-2] + "_fixed.c"
-            else:
-                fixed_name = fname + "_fixed.c"
-            zipf.writestr(fixed_name, f.corrected_code)
+    for zpath in [zip_path, zip_project_path]:
+        with zipfile.ZipFile(zpath, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for f in request.files:
+                fname = f.file_name.replace('\\', '/')
+                if fname.endswith('.c'):
+                    fixed_name = fname[:-2] + "_fixed.c"
+                else:
+                    fixed_name = fname + "_fixed.c"
+                zipf.writestr(fixed_name, f.corrected_code)
+                # Also save individual corrected file into generated_code
+                code_path = os.path.join(GENERATED_CODE_DIR, os.path.basename(fixed_name))
+                with open(code_path, 'w', encoding='utf-8') as cf:
+                    cf.write(f.corrected_code)
             
     return FileResponse(zip_path, media_type="application/zip", filename=zip_filename)
 
@@ -325,6 +368,7 @@ def generate_project_report(request: ProjectReportRequest):
     clean_folder = request.folder_name.replace('.', '_').replace(' ', '_')
     pdf_filename = f"MISRA_Project_Report_{clean_folder}.pdf"
     pdf_path = os.path.join(REPORTS_DIR, pdf_filename)
+    pdf_project_path = os.path.join(GENERATED_PDFS_DIR, pdf_filename)
     try:
         ReportGenerator.generate_project_pdf_report(
             folder_name=request.folder_name,
@@ -333,6 +377,14 @@ def generate_project_report(request: ProjectReportRequest):
             total_files=request.total_files,
             total_violations=request.total_violations,
             output_path=pdf_path
+        )
+        ReportGenerator.generate_project_pdf_report(
+            folder_name=request.folder_name,
+            files_summary=request.files_summary,
+            overall_score=request.overall_score,
+            total_files=request.total_files,
+            total_violations=request.total_violations,
+            output_path=pdf_project_path
         )
         return {
             "success": True,

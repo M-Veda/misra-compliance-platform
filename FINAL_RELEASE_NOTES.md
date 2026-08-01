@@ -2,7 +2,7 @@
 
 > **Release Version**: v1.0.0 (Release Baseline 1.0)  
 > **Release Date**: August 1, 2026  
-> **Commit Hash**: `f5b1644ac24d62dc2635ed425d25e2b15deb76f8`  
+> **Commit Hash**: `5548c440e36a4d4c14fa4f328af4e435b18428cb`  
 > **Target Standard**: MISRA C:2012 (Automotive & Embedded Safety-Critical C Subset)
 
 ---
@@ -54,7 +54,11 @@ MISRA_Project/
 │   ├── agent/                    # FastMCP agent interface
 │   ├── api/
 │   │   └── main.py               # FastAPI REST API endpoints
-│   ├── generated_reports/        # Output directory for generated PDF & ZIP artifacts
+│   ├── generated_code/           # Project directory for generated fixed .c files
+│   ├── generated_json/           # Project directory for generated JSON reports
+│   ├── generated_pdfs/           # Project directory for generated PDF compliance reports
+│   ├── generated_reports/        # Consolidated output directory for PDF & ZIP artifacts
+│   ├── generated_zips/           # Project directory for generated multi-file ZIP archives
 │   ├── models/
 │   │   └── violation.py          # Violation & patch Pydantic models
 │   ├── report/
@@ -64,7 +68,7 @@ MISRA_Project/
 │       ├── parser.py             # pycparser AST wrapper
 │       ├── patch.py              # Compatibility wrapper
 │       ├── patch_engine.py       # Range-based bottom-up patch engine
-│       └── llm.py                # AI explanation service
+│       └── llm.py                # AI structured explanation service
 ├── docs/                         # Consolidated Documentation Suite (12 Markdown Files)
 │   ├── API_DOCUMENTATION.md
 │   ├── BACKEND_DOCUMENTATION.md

@@ -12,9 +12,12 @@ node_modules/
 dist/
 .vite/
 
-# Runtime Generated Reports & Logs
-backend/generated_reports/*.pdf
-backend/generated_reports/*.zip
+# Runtime Generated Reports & Artifacts
+backend/generated_reports/*
+backend/generated_code/*
+backend/generated_json/*
+backend/generated_pdfs/*
+backend/generated_zips/*
 *.log
 *.txt
 evidence_data.json

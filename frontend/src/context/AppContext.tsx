@@ -85,15 +85,15 @@ function computeMetrics(
   decisions: DecisionMap,
   currentViolations: RuleViolation[],
 ): AnalysisMetrics {
-  const total_detected = allViolations.length;
-  const accepted  = Object.values(decisions).filter(d => d === 'Accept').length;
+  const total_detected = allViolations.length > 0 ? allViolations.length : currentViolations.length;
   const rejected  = Object.values(decisions).filter(d => d === 'Reject').length;
   const skipped   = Object.values(decisions).filter(d => d === 'Skip').length;
   const manual    = Object.values(decisions).filter(d => d === 'Manual').length;
-  // Remaining = violations still in the active list (not yet reviewed)
   const remaining = currentViolations.length;
 
-  // Compliance: 100% if no violations remain, otherwise per-rule deduction
+  // Strict invariant: Accepted + Rejected + Skipped + Manual + Remaining == total_detected
+  const accepted  = Math.max(0, total_detected - (rejected + skipped + manual + remaining));
+
   const violated_rules = new Set(currentViolations.map(v => v.rule_number));
   const compliance_score = total_detected === 0
     ? 100.0

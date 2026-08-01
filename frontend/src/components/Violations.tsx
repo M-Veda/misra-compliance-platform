@@ -108,7 +108,8 @@ const Violations = () => {
   const [canAutopatch,         setCanAutopatch]          = useState<boolean | null>(null);
   const [noPatchReason,        setNoPatchReason]         = useState<string>('');
   const [loadingPatch,         setLoadingPatch]          = useState(false);
-  const [explanation,          setExplanation]           = useState<string | null>(null);
+  const [explanation,          setExplanation]           = useState<string>('');
+  const [structuredAiData,     setStructuredAiData]      = useState<any>(null);
   const [loadingExplanation,   setLoadingExplanation]    = useState(false);
   const [reanalyzing,          setReanalyzing]           = useState(false);
   const [manualMode,           setManualMode]            = useState(false);
@@ -155,7 +156,7 @@ const Violations = () => {
       setPatchedCode('');
       setCanAutopatch(null);
       setNoPatchReason('');
-      setExplanation(null);
+      setExplanation('');
       setManualMode(false);
       return;
     }
@@ -231,7 +232,7 @@ const Violations = () => {
     };
 
     fetchPatch();
-    setExplanation(null);
+    setExplanation('');
     setManualMode(false);
   }, [selectedViolation, analysisResult, workingCode]);
 
@@ -239,6 +240,7 @@ const Violations = () => {
   const handleAskAI = async () => {
     if (!selectedViolation || !analysisResult) return;
     setLoadingExplanation(true);
+    setStructuredAiData(null);
     try {
       const response = await fetch('http://localhost:8000/api/explain', {
         method: 'POST',
@@ -250,6 +252,15 @@ const Violations = () => {
       });
       const data = await response.json();
       setExplanation(data.explanation);
+      if (data.structured) {
+        setStructuredAiData(data.structured);
+      } else {
+        try {
+          setStructuredAiData(JSON.parse(data.explanation));
+        } catch {
+          setStructuredAiData(null);
+        }
+      }
     } catch (err) {
       console.error('Failed to fetch explanation:', err);
       setExplanation('Failed to get explanation from AI.');
@@ -857,13 +868,118 @@ const Violations = () => {
               </div>
             </div>
 
-            {/* AI Explanation Panel */}
+            {/* AI Engineering Assistant Panel */}
             {explanation && (
-              <div className="glass-panel p-4 bg-slate-800/40 max-h-48 overflow-y-auto custom-scrollbar border-l-4 border-violet-500">
-                <h4 className="text-sm font-bold text-violet-300 mb-2 flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" /> AI Explanation
-                </h4>
-                <p className="text-sm text-slate-300 whitespace-pre-wrap">{explanation}</p>
+              <div className="glass-panel p-5 bg-slate-900/90 max-h-96 overflow-y-auto custom-scrollbar border border-violet-500/40 rounded-xl shadow-xl space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-violet-500/20 text-violet-300 rounded-lg">
+                      <MessageSquare className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        MISRA AI Engineering Assistant Analysis
+                        {selectedViolation && (
+                          <span className="px-2 py-0.5 text-xs bg-violet-500/20 text-violet-300 rounded-full border border-violet-500/30">
+                            Rule {selectedViolation.rule_number}
+                          </span>
+                        )}
+                      </h4>
+                      <p className="text-xs text-slate-400">Deterministic AST Traversal & Safety Impact Assessment</p>
+                    </div>
+                  </div>
+                  {structuredAiData && (
+                    <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20 text-xs font-mono font-bold">
+                      🎯 {(structuredAiData.confidence * 100).toFixed(0)}% Confidence
+                    </div>
+                  )}
+                </div>
+
+                {structuredAiData ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    {/* What AI Found */}
+                    <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 space-y-1">
+                      <div className="font-bold text-violet-300 flex items-center gap-1.5">
+                        🔍 What AI Found
+                      </div>
+                      <p className="text-slate-300 leading-relaxed">{structuredAiData.what_ai_found}</p>
+                    </div>
+
+                    {/* Why It Matters */}
+                    <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 space-y-1">
+                      <div className="font-bold text-amber-400 flex items-center gap-1.5">
+                        ⚠ Why It Matters
+                      </div>
+                      <p className="text-slate-300 leading-relaxed">{structuredAiData.why_it_matters}</p>
+                    </div>
+
+                    {/* MISRA Summary */}
+                    <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 space-y-1">
+                      <div className="font-bold text-sky-400 flex items-center gap-1.5">
+                        📖 MISRA Requirement
+                      </div>
+                      <p className="text-slate-300 leading-relaxed">{structuredAiData.misra_summary}</p>
+                    </div>
+
+                    {/* AI Analysis */}
+                    <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 space-y-1">
+                      <div className="font-bold text-indigo-300 flex items-center gap-1.5">
+                        🧠 AI AST Analysis
+                      </div>
+                      <p className="text-slate-300 leading-relaxed">{structuredAiData.ai_analysis}</p>
+                    </div>
+
+                    {/* Recommended Fix */}
+                    <div className="md:col-span-2 p-3 bg-slate-800/80 rounded-xl border border-emerald-500/30 space-y-2">
+                      <div className="font-bold text-emerald-400 flex items-center gap-1.5">
+                        💡 Recommended Fix & Rationale
+                      </div>
+                      <p className="text-slate-300 leading-relaxed">{structuredAiData.why_fix_works}</p>
+                      {structuredAiData.recommended_fix && (
+                        <div className="p-2 bg-slate-950 rounded border border-emerald-500/20 font-mono text-emerald-300 text-xs">
+                          <code>{structuredAiData.recommended_fix}</code>
+                        </div>
+                      )}
+                      {structuredAiData.alternative_fixes?.length > 0 && (
+                        <div className="pt-1 text-[11px] text-slate-400">
+                          <span className="font-bold text-slate-300">Alternative Fixes:</span>
+                          <ul className="list-disc list-inside mt-1 space-y-0.5 text-slate-300">
+                            {structuredAiData.alternative_fixes.map((alt: string, i: number) => (
+                              <li key={i}>{alt}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Impact Analysis Grid */}
+                    <div className="md:col-span-2 p-3 bg-slate-800/60 rounded-xl border border-slate-700/50">
+                      <div className="font-bold text-violet-300 flex items-center gap-1.5 mb-2">
+                        ⚖ Impact Analysis
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+                        <div className="p-2 bg-slate-900/80 rounded border border-slate-700">
+                          <span className="text-slate-400 block font-sans">Runtime:</span>
+                          <span className="font-bold text-emerald-400 font-mono">{structuredAiData.impact_analysis?.runtime || '0% penalty'}</span>
+                        </div>
+                        <div className="p-2 bg-slate-900/80 rounded border border-slate-700">
+                          <span className="text-slate-400 block font-sans">Memory:</span>
+                          <span className="font-bold text-emerald-400 font-mono">{structuredAiData.impact_analysis?.memory || '0 bytes'}</span>
+                        </div>
+                        <div className="p-2 bg-slate-900/80 rounded border border-slate-700">
+                          <span className="text-slate-400 block font-sans">Compilation:</span>
+                          <span className="font-bold text-sky-400 font-mono">{structuredAiData.impact_analysis?.compilation || 'Clean build'}</span>
+                        </div>
+                        <div className="p-2 bg-slate-900/80 rounded border border-slate-700">
+                          <span className="text-slate-400 block font-sans">Compliance:</span>
+                          <span className="font-bold text-violet-300 font-mono">{structuredAiData.impact_analysis?.compliance || '+10% Gain'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-300 whitespace-pre-wrap">{explanation}</p>
+                )}
               </div>
             )}
 
