@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Code, Check, X, SkipForward, MessageSquare, Terminal, Loader2,
-  RefreshCw, Search, Edit3, ChevronDown, Zap, Folder,
+  RefreshCw, Search, Edit3, ChevronDown, Zap, Folder, ArrowRight
 } from 'lucide-react';
 import { DiffEditor } from '@monaco-editor/react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -80,8 +80,6 @@ const Toast = ({ message, onDone }: ToastProps) => {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 const Violations = () => {
   const {
     analysisResult,
@@ -95,7 +93,6 @@ const Violations = () => {
     setManualCode,
     selectedViolation,
     setSelectedViolation,
-    settings,
     isFolderMode,
     folderName,
     fileList,
@@ -138,7 +135,6 @@ const Violations = () => {
 
   /**
    * Preview cache: keyed by "${stable_id}:${working_code hash}"
-   * Prevents re-fetching previews when navigating between violations on the same working copy.
    */
   const previewCache = useRef<Map<string, { patchedCode: string; canAutopatch: boolean; reason: string }>>(new Map());
 
@@ -154,11 +150,6 @@ const Violations = () => {
   }, []);
 
   // ── Fetch patch preview (with caching) ─────────────────────────────────────
-  // Strategy:
-  //   AUTO_PATCH rules  → call /api/preview-patch, show full-file diff in Monaco
-  //   TEMPLATE_PATCH / MANUAL_REVIEW_REQUIRED rules → read patch_preview from the
-  //     violation object returned by /api/upload (no extra round trip) and show
-  //     the focused original→proposed snippet diff in Monaco.
   useEffect(() => {
     if (!selectedViolation || !analysisResult) {
       setPatchedCode('');
@@ -191,7 +182,6 @@ const Violations = () => {
       return;
     }
 
-    // ── Unified path: fetch preview from /api/preview-patch ─────
     const fetchPatch = async () => {
       setLoadingPatch(true);
       try {
@@ -243,11 +233,11 @@ const Violations = () => {
     fetchPatch();
     setExplanation(null);
     setManualMode(false);
-  }, [selectedViolation, analysisResult, workingCode]); // NOTE: decisions/manualCodes intentionally excluded
+  }, [selectedViolation, analysisResult, workingCode]);
 
   // ── Ask AI ──────────────────────────────────────────────────────────────────
   const handleAskAI = async () => {
-    if (!selectedViolation || !analysisResult || !settings.enableAIExplanations) return;
+    if (!selectedViolation || !analysisResult) return;
     setLoadingExplanation(true);
     try {
       const response = await fetch('http://localhost:8000/api/explain', {
@@ -268,9 +258,17 @@ const Violations = () => {
     }
   };
 
+  // ── Helper to start manual fix workflow pre-filled with suggested fix ───────
+  const startManualFix = () => {
+    if (!selectedViolation || !analysisResult) return;
+    const currentWorking = workingCode || analysisResult.source_code;
+    const suggested = patchedCode || selectedViolation.patch_preview?.replacement_source || selectedViolation.suggested_fix || currentWorking;
+    setManualInput(suggested);
+    setManualMode(true);
+  };
+
   // ── Next violation helper ────────────────────────────────────────────────────
   const getNextViolation = (currentList: RuleViolation[], currentItem: RuleViolation): RuleViolation | null => {
-    if (!settings.autoScrollNextViolation) return null;
     const currentIndex = currentList.findIndex(v => v === currentItem);
     const updated = currentList.filter(v => v !== currentItem);
     if (updated.length === 0) return null;
@@ -286,18 +284,12 @@ const Violations = () => {
     const currentWorking = workingCode || analysisResult.source_code;
 
     if (decision === 'Accept') {
-      // Guarantee #5: Accept only if a real patch exists and changed the code
       if (!canAutopatch || !patchedCode || patchedCode === currentWorking) {
-        // No real patch — redirect to manual fix
-        setManualInput(currentWorking);
-        setManualMode(true);
+        startManualFix();
         return;
       }
 
-      // Apply patch: update authoritative working copy
       const newSource = patchedCode;
-
-      // Invalidate preview cache for this violation since working_code changes
       previewCache.current.clear();
 
       setDecision(key, 'Accept');
@@ -350,7 +342,6 @@ const Violations = () => {
       setManualInput('');
 
     } else {
-      // Reject / Skip — source unchanged
       setDecision(key, decision);
       setAnalysisResult({
         ...analysisResult,
@@ -366,15 +357,11 @@ const Violations = () => {
     setSelectedViolation(nextSelected);
   };
 
-  // ── Re-analyze (verification-only pass) ─────────────────────────────────────
+  // ── Re-analyze ─────────────────────────────────────────────────────────────
   const handleReAnalyze = async () => {
     if (!analysisResult) return;
-    if (settings.confirmReanalysis) {
-      if (!window.confirm('Re-analyze the current working copy for remaining violations?')) return;
-    }
     setReanalyzing(true);
     try {
-      // Always analyze the latest working copy — never the original
       const codeToAnalyze = workingCode || analysisResult.source_code;
       const blob = new Blob([codeToAnalyze], { type: 'text/plain' });
       const formData = new FormData();
@@ -387,8 +374,6 @@ const Violations = () => {
         const newViolations: RuleViolation[] = data.violations || [];
         const finalScore = newViolations.length === 0 ? 100.0 : data.compliance_score;
 
-        // Re-analysis MUST NOT reset decisions or all_violations baseline.
-        // It only updates the active violations list and score.
         setAnalysisResult({
           ...analysisResult,
           source_code: codeToAnalyze,
@@ -422,7 +407,7 @@ const Violations = () => {
     }
   };
 
-  // ── BULK ACTIONS (atomic transaction) ─────────────────────────────────────────
+  // ── BULK ACTIONS ───────────────────────────────────────────────────────────
   const executeBulkActionParams = useCallback(async (dec: BulkDecision, sevFilter: BulkSeverityFilter) => {
     if (!analysisResult) return;
     setBulkPhase('progress');
@@ -435,14 +420,12 @@ const Violations = () => {
     setBulkTargetCount(targets.length);
 
     if (dec === 'Accept') {
-      // ── Atomic accept transaction ──────────────────────────────────────────
       let workingSource = workingCode || analysisResult.source_code;
       let failed = 0;
       let patchError: string | undefined;
       let currentViolationsList = [...analysisResult.violations];
       const newDecisions: DecisionMap = { ...decisions };
 
-      // Iterative convergence: apply patchable violations, re-scan, repeat
       for (let pass = 0; pass < 5; pass++) {
         const pendingTargets = currentViolationsList.filter(v =>
           !newDecisions[violationStableKey(v)] &&
@@ -450,7 +433,6 @@ const Violations = () => {
         );
         if (pendingTargets.length === 0) break;
 
-        // Mark all in this pass as Accept
         for (const v of pendingTargets) {
           newDecisions[violationStableKey(v)] = 'Accept';
         }
@@ -466,7 +448,6 @@ const Violations = () => {
           if (data.success && data.modified_code && data.modified_code !== workingSource) {
             workingSource = data.modified_code;
 
-            // Verification scan on the patched working copy
             const blob = new Blob([workingSource], { type: 'text/plain' });
             const formData = new FormData();
             formData.append('file', blob, analysisResult.file_name);
@@ -481,7 +462,6 @@ const Violations = () => {
               break;
             }
           } else if (data.success && data.modified_code === workingSource) {
-            // Patch applied but source unchanged (already applied or no-op)
             break;
           } else {
             failed += pendingTargets.length;
@@ -495,14 +475,12 @@ const Violations = () => {
         }
       }
 
-      // ── Atomic commit: update all state once ────────────────────────────────
       const finalScore = currentViolationsList.length === 0
         ? 100.0
         : Math.max(0, 100.0 - (new Set(currentViolationsList.map(v => v.rule_number)).size * 10.0));
 
       const acceptedCount = Object.values(newDecisions).filter(d => d === 'Accept').length;
 
-      // Commit to context
       updateDecisions(newDecisions);
       setWorkingCode(workingSource);
       setAnalysisResult({
@@ -528,7 +506,6 @@ const Violations = () => {
       setBulkSummary({ accepted: acceptedCount, skipped: 0, failed, complianceScore: finalScore, error: patchError });
 
     } else {
-      // ── Reject / Skip — no source modification ─────────────────────────────
       const newDecisions: DecisionMap = { ...decisions };
       const targetKeys = new Set(targets.map(violationStableKey));
 
@@ -576,12 +553,8 @@ const Violations = () => {
     setBulkCurrentIndex(0);
     setBulkSummary(null);
 
-    if (settings.confirmBulkActions) {
-      setBulkPhase('confirm');
-    } else {
-      executeBulkActionParams(item.decision, item.severity);
-    }
-  }, [analysisResult, decisions, settings.confirmBulkActions, executeBulkActionParams]);
+    executeBulkActionParams(item.decision, item.severity);
+  }, [analysisResult, decisions, executeBulkActionParams]);
 
   const handleBulkConfirm = useCallback(() => executeBulkActionParams(bulkDecision, bulkSeverityFilter),
     [executeBulkActionParams, bulkDecision, bulkSeverityFilter]);
@@ -593,8 +566,6 @@ const Violations = () => {
     const sev   = bulkSeverityFilter === 'All' ? '' : `${bulkSeverityFilter} `;
     setToastMessage(`${noun} ${count} ${sev}violation${count !== 1 ? 's' : ''}.`);
   }, [bulkSummary, bulkDecision, bulkSeverityFilter]);
-
-  // ─────────────────────────────────────────────────────────────────────────────
 
   if (!analysisResult) {
     return (
@@ -616,7 +587,6 @@ const Violations = () => {
     return matchesSearch && matchesSeverity;
   });
 
-  // Accept button validation: enabled whenever a valid patch candidate modifies current working source
   const acceptEnabled = (
     !!selectedViolation &&
     !loadingPatch &&
@@ -815,7 +785,7 @@ const Violations = () => {
               <div className="p-3 border-b border-slate-700/50 bg-slate-800/80 flex justify-between items-center">
                 <span className="font-mono text-sm text-violet-300 flex items-center gap-2">
                   <Code className="w-4 h-4" />
-                  Patch Preview — Original vs Proposed
+                  {manualMode ? 'Manual Fix Editor (Pre-filled with Analyzer Suggestion)' : 'Patch Preview — Original vs Proposed'}
                 </span>
                 {selectedViolation && (
                   <span className="text-xs text-slate-400">
@@ -824,7 +794,7 @@ const Violations = () => {
                 )}
               </div>
 
-              <div className="flex-1 bg-[#1e1e1e] relative min-h-[300px]">
+              <div className="flex-1 bg-[#1e1e1e] relative flex flex-col min-h-[300px]">
                 {loadingPatch && (
                   <div className="absolute inset-0 z-10 bg-[#1e1e1e]/80 flex items-center justify-center backdrop-blur-sm">
                     <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
@@ -835,27 +805,50 @@ const Violations = () => {
                   <DiffEditor
                     height="100%"
                     language="c"
-                    theme={settings.theme === 'light' ? 'vs' : 'vs-dark'}
+                    theme="vs-dark"
                     original={currentWorking}
                     modified={patchedCode || currentWorking}
                     options={{
                       minimap: { enabled: false },
-                      fontSize: settings.fontSize,
+                      fontSize: 14,
                       fontFamily: 'Consolas, monospace',
                       scrollBeyondLastLine: false,
                       readOnly: true,
                       renderSideBySide: true,
-                      wordWrap: settings.wordWrap ? 'on' : 'off',
-                      lineNumbers: settings.showLineNumbers ? 'on' : 'off',
+                      wordWrap: 'on',
+                      lineNumbers: 'on',
                     }}
                   />
                 ) : manualMode ? (
-                  <textarea
-                    className="w-full h-full bg-[#1e1e1e] text-slate-100 font-mono text-sm p-4 resize-none focus:outline-none"
-                    placeholder="Enter your manually corrected version of the full source code here..."
-                    value={manualInput}
-                    onChange={e => setManualInput(e.target.value)}
-                  />
+                  <div className="h-full flex flex-col p-4 gap-4 overflow-y-auto">
+                    {/* Guidance banner showing Original -> Suggested -> Editable */}
+                    <div className="p-3 bg-slate-800/90 border border-violet-500/30 rounded-xl text-xs flex flex-col gap-2">
+                      <div className="flex items-center gap-2 text-violet-300 font-bold">
+                        <Edit3 className="w-4 h-4 text-amber-400" />
+                        Manual Fix Workflow: Original Snippet <ArrowRight className="w-3 h-3 text-slate-400" /> Analyzer Suggestion <ArrowRight className="w-3 h-3 text-slate-400" /> Your Refactoring
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-slate-300 font-mono">
+                        <div className="p-2 bg-slate-900/80 rounded border border-red-500/30">
+                          <span className="text-[10px] text-red-400 font-sans font-bold block mb-1">ORIGINAL CODE:</span>
+                          <code>{selectedViolation?.code_snippet || 'Selected line'}</code>
+                        </div>
+                        <div className="p-2 bg-slate-900/80 rounded border border-emerald-500/30">
+                          <span className="text-[10px] text-emerald-400 font-sans font-bold block mb-1">ANALYZER SUGGESTED FIX:</span>
+                          <code>{selectedViolation?.suggested_fix || 'Automated suggested fix'}</code>
+                        </div>
+                      </div>
+                      <p className="text-slate-400 text-[11px] font-sans">
+                        The editor below is pre-filled with the analyzer's best safe suggestion. Adjust formatting, modify parentheses, or refine code logic before clicking Confirm.
+                      </p>
+                    </div>
+
+                    <textarea
+                      className="flex-1 w-full min-h-[260px] bg-slate-950 text-slate-100 font-mono text-sm p-4 rounded-xl border border-slate-700 focus:outline-none focus:border-violet-500 resize-none shadow-inner"
+                      placeholder="Modify source code..."
+                      value={manualInput}
+                      onChange={e => setManualInput(e.target.value)}
+                    />
+                  </div>
                 ) : (
                   <div className="h-full flex items-center justify-center text-slate-500">
                     Select a violation from the list to view the proposed patch.
@@ -876,21 +869,14 @@ const Violations = () => {
 
             {/* Action Bar */}
             <div className="glass-panel p-4 flex gap-4 justify-between items-center bg-slate-800/40">
-              {settings.enableAIExplanations ? (
-                <button
-                  onClick={handleAskAI}
-                  disabled={!selectedViolation || loadingExplanation || manualMode}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loadingExplanation ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
-                  Ask AI
-                </button>
-              ) : (
-                <button disabled className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 text-slate-500 rounded-lg text-sm font-medium opacity-50 cursor-not-allowed border border-slate-700/40">
-                  <MessageSquare className="w-4 h-4" />
-                  Ask AI (Disabled)
-                </button>
-              )}
+              <button
+                onClick={handleAskAI}
+                disabled={!selectedViolation || loadingExplanation || manualMode}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loadingExplanation ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
+                Ask AI
+              </button>
               <div className="flex gap-3 flex-wrap">
                 {manualMode ? (
                   <>
@@ -924,17 +910,12 @@ const Violations = () => {
                       <X className="w-4 h-4" /> Reject
                     </button>
                     <button
-                      onClick={() => {
-                        if (!selectedViolation) return;
-                        setManualInput(currentWorking);
-                        setManualMode(true);
-                      }}
+                      onClick={startManualFix}
                       disabled={!selectedViolation}
                       className="flex items-center gap-2 px-4 py-2 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
                     >
                       <Edit3 className="w-4 h-4" /> Manual Fix
                     </button>
-                    {/* Accept Patch — disabled when no real patch can be applied */}
                     <button
                       onClick={() => handleDecision('Accept')}
                       disabled={!acceptEnabled}

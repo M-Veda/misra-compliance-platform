@@ -1,129 +1,64 @@
-# MISRA AI Compliance Agent — System Architecture
+# MISRA C:2012 Static Analyzer — System Architecture
 
-> **Verification Scope**: Validated for the current implemented rule set and tested against the documented scenarios.
+> **Date**: August 1, 2026  
+> **Status**: Release Baseline 1.0
 
 ---
 
-## 1. High-Level Architecture Overview
+## 1. System High-Level Architecture
 
-The system uses a decoupled Client-Server architecture:
-- **Frontend Layer**: React 18 SPA built with Vite, TypeScript, TailwindCSS, Monaco Diff Editor, and Lucide Icons. Managed via a single-source-of-truth React Context (`AppContext.tsx`).
-- **Backend Layer**: FastAPI web framework in Python 3.14, serving RESTful endpoints for C code parsing (`pycparser`), MISRA detection, transactional offset-based patch application, LLM explanations, and ReportLab PDF generation.
+The system is structured as a decoupled client-server web application:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                                 FRONTEND (React)                                │
-│                                                                                 │
-│   ┌──────────────┐    ┌──────────────────┐    ┌─────────────────┐    ┌───────┐  │
-│   │ Dashboard.tsx│    │  Violations.tsx  │    │GeneratedCode.tsx│    │Reports│  │
-│   └──────┬───────┘    └────────┬─────────┘    └────────┬────────┘    └───┬───┘  │
-│          │                     │                       │                 │      │
-│          └─────────────────────┼───────────────────────┴─────────────────┘      │
-│                                │                                                │
-│                 ┌──────────────▼───────────────────────┐                        │
-│                 │      AppContext.tsx (Context)        │                        │
-│                 │ - workingCode (Single Source)        │                        │
-│                 │ - allViolations (Immutable Baseline) │                        │
-│                 │ - getAnalysisMetrics() Hook          │                        │
-│                 └──────────────┬───────────────────────┘                        │
-└────────────────────────────────┼────────────────────────────────────────────────┘
-                                 │ HTTP / REST
-┌────────────────────────────────▼────────────────────────────────────────────────┐
-│                                 BACKEND (FastAPI)                               │
-│                                                                                 │
-│   ┌───────────────────┐    ┌────────────────────┐    ┌──────────────────────┐   │
-│   │ /api/upload       │    │ /api/preview-patch  │    │ /api/apply-patches   │   │
-│   └─────────┬─────────┘    └─────────┬──────────┘    └──────────┬───────────┘   │
-│             │                        │                          │               │
-│   ┌─────────▼─────────┐    ┌─────────▼──────────┐    ┌──────────▼───────────┐   │
-│   │  AST Detection    │    │ Patch Engine       │    │ Bottom-Up Offset     │   │
-│   │  (pycparser)      │    │ (can_autopatch)    │    │ Transactional Engine │   │
-│   └───────────────────┘    └────────────────────┘    └──────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────────┘
+[ React 18 + Vite + Monaco Diff Editor ]
+                 │
+                 │ HTTP REST API (JSON)
+                 ▼
+[ FastAPI Backend (Python 3.14) ]
+   ├── Parser Service (pycparser C AST)
+   ├── Rule Engine (10 Deterministic AST Rule Checkers)
+   ├── Range-Based Patch Engine (patch_engine.py)
+   └── Executive Report Generator (ReportLab PDF / JSON)
 ```
 
 ---
 
-## 2. Working Code Lifecycle
+## 2. Frontend Architecture (React + TypeScript)
 
-The application enforces a **Single Authoritative Working Copy** model:
+The frontend is built using React 18, Vite, Tailwind CSS, Monaco Editor, and Framer Motion.
 
-```
-  Original File Upload
-           │
-           ▼
-  [ working_code ] ◄── Initialized to original source code
-           │
-           ├──► User Accepts Patch / Applies Manual Fix
-           │        │
-           │        ▼
-           │    [ setWorkingCode(new_source) ]
-           │        │
-           │        ├── Updates working_code
-           │        ├── Syncs source_code and corrected_code aliases
-           │        └── Invalidates previewCache
-           │
-           ├──► Generated Code View reads working_code
-           ├──► Reports PDF Generator serializes working_code
-           └──► Re-analysis executes verification pass on working_code
-```
+### Key Components:
+- **`App.tsx`**: Main layout container with top-level sidebar navigation (Dashboard, Analysis Engine, Violations Review, Generated Code, Compliance Reports).
+- **`AppContext.tsx`**: The single source of truth for global state. Manages active file selections, baseline violation snapshots (`allViolations`), decisions (`Accept`, `Reject`, `Skip`, `Manual`), and authoritative working source code (`workingCode`).
+- **`Violations.tsx`**: Main human-in-the-loop review workspace featuring:
+  - Monaco `DiffEditor` for side-by-side patch previews.
+  - Action bar for `Accept`, `Reject`, `Skip`, `Accept All`, and `Manual Fix`.
+  - Pre-filled Manual Fix workflow displaying original snippet, suggested fix, and an editable pre-filled code editor.
+- **`GeneratedCode.tsx`**: Monaco editor displaying the authoritative `workingCode` after all accepted and manual edits. Supports individual `.c` download and folder ZIP download.
+- **`Reports.tsx`**: Executive PDF and machine-readable JSON report generator.
+- **`BulkActionModal.tsx`**: Progress modal managing multi-pass atomic bulk patch transactions.
 
 ---
 
-## 3. Patch Lifecycle State Machine
+## 3. Backend Architecture (FastAPI + pycparser)
 
-Each detected violation progresses through a formal state machine:
+The backend is implemented in Python using FastAPI.
 
-```
-                   ┌──────────┐
-                   │ DETECTED │
-                   └────┬─────┘
-                        │
-                        ▼
-              ┌───────────────────┐
-              │  can_autopatch()  │
-              └─────────┬─────────┘
-                        │
-         ┌──────────────┴──────────────┐
-         ▼                             ▼
-   [True (Auto)]                [False (Manual)]
-         │                             │
-         ▼                             ▼
-┌──────────────────┐         ┌───────────────────┐
-│  PREVIEW_READY   │         │  MANUAL_REQUIRED  │
-└────────┬─────────┘         └─────────┬─────────┘
-         │                             │
-         ├─────────────────────────────┘
-         ▼
- ┌──────────────┐        ┌──────────────┐        ┌──────────────┐
- │   ACCEPTED   │   OR   │   REJECTED   │   OR   │   SKIPPED    │
- └───────┬──────┘        └──────────────┘        └──────────────┘
-         │
-         ▼
-  ┌────────────┐
-  │  APPLIED   │ (Transaction commits working_code)
-  └──────┬─────┘
-         │
-         ▼
-  ┌────────────┐
-  │  VERIFIED  │ (Re-analysis confirms 0 remaining)
-  └──────┬─────┘
-         │
-         ▼
-  ┌────────────┐
-  │   CLOSED   │
-  └────────────┘
-```
+### Modules:
+1. **`backend/api/main.py`**: REST API routes handling file upload, preview generation, bulk patch execution, AI explanation, and report generation.
+2. **`backend/services/parser.py`**: C Parser service wrapper around `pycparser`. Preprocesses source code and generates Abstract Syntax Trees.
+3. **`backend/rules/`**: Rule checkers implementing the 10 supported MISRA C:2012 rules. Each rule inherits from `BaseRule` and uses AST `NodeVisitor` classes.
+4. **`backend/services/patch_engine.py`**: Production range-based bottom-up AST patch engine. Expresses every modification as structured operations (`REPLACE`, `INSERT_BEFORE`, `INSERT_AFTER`, `DELETE`) with exact line, column, and byte offset targeting.
+5. **`backend/report/generator.py`**: Executive report generator producing PDFs via ReportLab and JSON summaries.
 
 ---
 
-## 4. Transactional Bulk Accept Engine
+## 4. Single Source of Truth & Data Invariants
 
-Bulk Accept executes as an **Atomic Transaction**:
-
-1. **Candidate Filtering**: Identifies undecided violations eligible for auto-patching (`can_autopatch == True`).
-2. **Offset Op Construction**: Creates `PatchOp` objects with byte-offsets `(start_offset, end_offset)`.
-3. **Overlap Resolution**: Sorts by severity (Mandatory > Required > Advisory) and resolves overlapping offset intervals.
-4. **Bottom-Up Patch Application**: Applies replacements in **descending offset order** so earlier offsets remain unaffected by later text insertions.
-5. **Post-Patch Parse Check**: Runs `pycparser` on the final patched code. Rejects the transaction if C syntax is invalid.
-6. **Atomic Commit**: Updates `working_code`, `decisions`, and `analysisResult` **exactly once** in context.
+1. **`working_code` Single Source of Truth**:
+   - `workingCode` is the sole source of truth for Generated Code, Reports, and Re-analysis.
+2. **Immutable Baseline**:
+   - Initial detection count is frozen on first upload; `Accepted ≤ Total Detected`.
+3. **Counter Invariant**:
+   $$\text{Accepted} + \text{Rejected} + \text{Skipped} + \text{Manual} + \text{Remaining} = \text{Total Baseline Violations}$$
+   holds strictly across Dashboard, Violations, Reports, and Folder Mode.

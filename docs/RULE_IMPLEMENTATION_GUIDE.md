@@ -1,30 +1,44 @@
-# MISRA AI Compliance Agent — Rule Implementation Guide
+# MISRA C:2012 Static Analyzer — Rule Implementation Guide
 
-> **Verification Scope**: Validated for the current implemented rule set and tested against the documented scenarios.
-
----
-
-## 1. MISRA C:2012 Rule Classification & Status Matrix
-
-| Rule | MISRA Title | Category | Severity | Detection Engine | Remediation Mode | Rationale / Transformation | Status |
-| :---: | :--- | :--- | :---: | :--- | :---: | :--- | :---: |
-| **2.2** | No dead code | Unused Code | Required | `rule_2_2.py` (AST unreachable visitor) | **Automated** | Line-erase unreachable code following `return`/`break`/`goto` | **Fully Functional** |
-| **2.7** | Unused parameter | Unused Code | Advisory | `rule_2_7.py` (AST symbol table visitor) | **Automated** | Inserts `(void)param;` at body start | **Fully Functional** |
-| **7.1** | Octal constants prohibited | Literals | Required | `rule_7_1.py` (AST Constant visitor) | **Automated** | Converts octal literals (e.g. `077`) to decimal (`63`) | **Fully Functional** |
-| **8.4** | Missing prototype | Declarations | Required | `rule_8_4.py` (AST FuncDef visitor) | **Automated** | Prepends forward declaration prototype | **Fully Functional** |
-| **8.7** | Internal linkage | Declarations | Advisory | `rule_8_7.py` (AST FileScope visitor) | **Automated** | Prepends `static` keyword | **Fully Functional** |
-| **10.3**| Implicit narrowing | Types | Required | `rule_10_3.py` (AST EssentialTypeVisitor) | **Automated** | Inserts explicit cast `(target_type)expr` | **Fully Functional** |
-| **12.1**| Operator precedence | Expressions | Advisory | `rule_12_1.py` (AST PrecedenceVisitor) | **Automated** | Inserts explicit operator precedence parentheses `a + (b * c)` | **Fully Functional** |
-| **14.4**| Non-boolean condition | Control Flow | Required | `rule_14_4.py` (AST ConditionVisitor) | **Automated** | AST controlling expression rewriter (`if (count != 0)`) | **Fully Functional** |
-| **16.3**| Switch missing break | Control Flow | Required | `rule_16_3.py` (AST SwitchBreakVisitor) | **Automated** | Appends terminating `break;` to non-empty switch clauses | **Fully Functional** |
-| **16.4**| Switch missing default | Control Flow | Required | `rule_16_4.py` (AST SwitchDefaultVisitor) | **Automated** | Appends `default:\n    break;` clause to switch statements | **Fully Functional** |
+> **Date**: August 1, 2026  
+> **Status**: Release Baseline 1.0
 
 ---
 
-## 2. 100% Deterministic Auto-Patch Guarantee
+## 1. Implemented Rule Matrix
 
-All 10 implemented base rules are **100% Auto-Patchable** via AST-based range transformations:
+Every supported rule is deterministically checked using AST `NodeVisitor` classes in `backend/rules/`:
 
-1. **Zero Heuristics**: Every rule uses AST coordinate ranges and exact node properties.
-2. **Coordinate-Bound Patch Previews**: Every violation produces a 17-field `PatchPreview` bound to its unique `stable_id`, line, and column coordinates.
-3. **Idempotency & Syntax Integrity**: Applying patches twice produces identical code, and all modified source files are validated through `pycparser` before committing.
+| Rule | Title | Category | Severity | Detection Logic | Auto-Patch Strategy |
+| :---: | :--- | :--- | :---: | :--- | :--- |
+| **2.2** | No dead code / side-effect statement | Unused Code | Required | Finds unreachable statements after `return` or statements without side effects. | Deletes dead code / side-effect-free statement. |
+| **2.7** | Unused function parameter | Unused Code | Advisory | Finds declared function parameters not referenced in body. | Inserts `(void)param;` at body start. |
+| **7.1** | Octal constants prohibited | Literals | Required | Regex/AST search for octal integer literals (e.g. `077`). | Converts octal literal to decimal representation. |
+| **8.4** | Missing prototype declaration | Declarations | Required | Finds non-static function definitions lacking prior prototype. | Prepends compatible prototype declaration. |
+| **8.7** | Single-use global variable scope | Declarations | Advisory | Finds global variables referenced in only one function. | Prepends `static` keyword or moves variable scope. |
+| **10.3**| Essential type cast / implicit conversion | Types | Required | Inspects return type vs returned expression essential types. | **Partial Auto-Patch**: Inserts explicit cast `(target_type)expr`. Semantic conversions requiring developer review are left for manual fix. |
+| **12.1**| Operator precedence parentheses | Expressions | Advisory | Checks binary operations with mixed precedence lacking parentheses. | Wraps sub-expressions in explicit parentheses `((a * b) + c)`. |
+| **14.4**| Non-Boolean controlling condition | Control Flow | Required | Checks `if` controlling expressions that evaluate to integer instead of Boolean. | Transforms `if (expr)` to `if ((expr) != 0)`. |
+| **16.3**| Switch clause missing break | Control Flow | Required | Inspects non-empty switch cases lacking unconditional `break`. | Appends `break;` at clause termination. |
+| **16.4**| Switch missing default clause | Control Flow | Required | Inspects `switch` statements lacking a `default:` label. | Appends `default:\n    break;` to switch body. |
+
+---
+
+## 2. Rule 10.3 Patch Policy Specification
+
+**Rule 10.3 Policy:** **Partial Auto-Patch**.
+- **Automated Fixes**: Safe cases (such as implicit conversions in return statements where an explicit target type cast is unambiguous) are fixed automatically by inserting `(target_type)expr`.
+- **Manual Review Cases**: Semantic conversions involving numeric literal suffixing (e.g. `0` vs `0U`), implicit narrowing assignments, or typedef conversions that could alter program runtime behavior are intentionally left for manual developer review.
+
+---
+
+## 3. Patch Engine Architecture (`patch_engine.py`)
+
+The patch engine executes structured range-based operations:
+1. **Range Targeting**: Calculates exact `start_line`, `start_col`, `end_line`, `end_col`, `start_offset`, and `end_offset`.
+2. **Operation Types**:
+   - `REPLACE`: Replaces target range with modified code string.
+   - `INSERT_BEFORE` / `INSERT_AFTER`: Inserts prototype declarations or `(void)param;` statements.
+   - `DELETE`: Removes dead code statements.
+3. **Bottom-Up Bulk Execution**: Multi-op bulk patch application sorts operations in descending byte offset order (`start_offset` descending) so applying earlier patches never invalidates offsets of subsequent patches.
+4. **AST Validation**: Re-parses patched code with pycparser to ensure complete syntactic validity before committing.

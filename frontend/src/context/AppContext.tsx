@@ -3,12 +3,10 @@ import type { ReactNode } from 'react';
 import type {
   AnalysisResult,
   RuleViolation,
-  AppSettings,
   FileAnalysisItem,
   AnalysisMetrics,
   DecisionType,
 } from '../types';
-import { DEFAULT_SETTINGS } from '../types';
 
 export type DecisionMap = Record<string, DecisionType>;
 export type ManualCodeMap = Record<string, string>;
@@ -62,10 +60,6 @@ interface AppContextType {
   activeTab: string;
   setActiveTab: (tab: string) => void;
 
-  settings: AppSettings;
-  updateSettings: (newSettings: Partial<AppSettings>) => void;
-  resetSettings: () => void;
-
   resetSession: () => void;
 
   // ── Folder & Multi-file ────────────────────────────────────────────────────
@@ -84,7 +78,6 @@ interface AppContextType {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
-const STORAGE_KEY = 'misra_ai_settings';
 
 // ── Metrics computation — the ONLY place statistics are calculated ──────────
 function computeMetrics(
@@ -128,26 +121,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [selectedViolation, setSelectedViolation] = useState<RuleViolation | null>(null);
   const [recentScans,       setRecentScans]        = useState<ScanHistory[]>([]);
   const [activeTab,         setActiveTab]          = useState('dashboard');
-
-  const [settings, setSettingsState] = useState<AppSettings>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
-    } catch (e) {
-      console.error('Failed to load settings from localStorage:', e);
-    }
-    return DEFAULT_SETTINGS;
-  });
-
-  useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); }
-    catch (e) { console.error('Failed to save settings:', e); }
-  }, [settings]);
-
-  const updateSettings = (newSettings: Partial<AppSettings>) =>
-    setSettingsState(prev => ({ ...prev, ...newSettings }));
-
-  const resetSettings = () => setSettingsState(DEFAULT_SETTINGS);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -347,9 +320,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addRecentScan,
     activeTab,
     setActiveTab,
-    settings,
-    updateSettings,
-    resetSettings,
     resetSession,
     folderName,
     setFolderName,

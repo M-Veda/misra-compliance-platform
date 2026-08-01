@@ -8,7 +8,6 @@ const GeneratedCode = () => {
   const {
     workingCode,
     analysisResult,
-    settings,
     isFolderMode,
     folderName,
     fileList,
@@ -21,12 +20,11 @@ const GeneratedCode = () => {
     ? (fileList[activeFileIndex]?.working_code ?? fileList[activeFileIndex]?.corrected_code ?? '')
     : workingCode;
 
-
   const [showLineNumbers, setShowLineNumbers] = useState(true);
   const [copied, setCopied] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
 
-  const suffix = settings.filenameSuffix ?? '_fixed';
+  const suffix = '_fixed';
 
   // Derive output filename for individual download
   const fixedFilename = (() => {
@@ -156,7 +154,7 @@ const GeneratedCode = () => {
             onClick={() => setShowLineNumbers(prev => !prev)}
             title="Toggle line numbers"
             className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
-              showLineNumbers && settings.showLineNumbers
+              showLineNumbers
                 ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30'
                 : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700/50'
             }`}
@@ -256,16 +254,16 @@ const GeneratedCode = () => {
             <Editor
               height="100%"
               language="c"
-              theme={settings.theme === 'light' ? 'vs' : 'vs-dark'}
+              theme="vs-dark"
               value={correctedCode}
               options={{
                 readOnly: true,
                 minimap: { enabled: true },
-                fontSize: settings.fontSize,
+                fontSize: 14,
                 fontFamily: 'Consolas, "Courier New", monospace',
-                lineNumbers: (showLineNumbers && settings.showLineNumbers) ? 'on' : 'off',
+                lineNumbers: showLineNumbers ? 'on' : 'off',
                 scrollBeyondLastLine: false,
-                wordWrap: settings.wordWrap ? 'on' : 'off',
+                wordWrap: 'on',
                 renderLineHighlight: 'line',
                 smoothScrolling: true,
                 cursorBlinking: 'solid',
@@ -278,14 +276,8 @@ const GeneratedCode = () => {
               }}
             />
           ) : (
-            <div className="h-full flex items-center justify-center flex-col gap-4 text-slate-500">
-              <FileCode2 className="w-16 h-16 text-slate-700" />
-              <div className="text-center">
-                <p className="font-semibold text-slate-400 mb-1">No patches applied yet</p>
-                <p className="text-sm">
-                  Accept violations in the Violations Review page to see corrected code here.
-                </p>
-              </div>
+            <div className="h-full flex items-center justify-center text-slate-500">
+              No code available to display.
             </div>
           )}
         </div>

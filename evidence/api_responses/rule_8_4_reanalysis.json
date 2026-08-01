@@ -1,7 +1,0 @@
-{
-  "success": true,
-  "file_name": "rule_8_4_sample.c",
-  "source_code": "#include <stdio.h>\nint no_proto_func(int val);\nint no_proto_func(int val) { return val + 1; }\nint main(void) { return no_proto_func(5); }\n",
-  "violations": [],
-  "compliance_score": 100.0
-}

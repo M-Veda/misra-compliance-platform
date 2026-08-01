@@ -13,13 +13,10 @@ const Reports = () => {
     folderName,
     fileList,
     getAnalysisMetrics,
-    settings,
   } = useAppContext();
-
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastReport, setLastReport] = useState<{ pdfFilename: string; jsonData: object } | null>(null);
 
   /**
    * Builds the synchronized report payload for a single file.
@@ -42,7 +39,6 @@ const Reports = () => {
       total_detected: metrics.total_detected,
     };
   };
-
 
   const generateReport = async () => {
     const payload = buildPayload();
@@ -67,9 +63,6 @@ const Reports = () => {
       }
 
       const data = await response.json();
-      if (data.success) {
-        setLastReport({ pdfFilename: data.pdf_report_filename, jsonData: data.json_report });
-      }
       return data;
     } catch (err: any) {
       setError(err.message || 'An error occurred during report generation.');
@@ -127,7 +120,6 @@ const Reports = () => {
 
       const data = await response.json();
       if (data.success) {
-        setLastReport({ pdfFilename: data.pdf_report_filename, jsonData: { folderName, files_summary } });
         const url = `http://localhost:8000/api/download-pdf/${data.pdf_report_filename}`;
         window.open(url, '_blank');
       }
@@ -183,15 +175,8 @@ const Reports = () => {
   const handleDefaultGenerate = async () => {
     if (isFolderMode) {
       await downloadProjectPDF();
-      return;
-    }
-    if (settings.defaultReportFormat === 'pdf') {
-      await downloadPDF();
-    } else if (settings.defaultReportFormat === 'json') {
-      await downloadJSON();
     } else {
       await downloadPDF();
-      await downloadJSON();
     }
   };
 
@@ -217,7 +202,6 @@ const Reports = () => {
     overallScoreVal = m.compliance_score;
   }
 
-
   return (
     <div className="h-full flex flex-col gap-6 p-2">
       <div className="flex justify-between items-end">
@@ -232,7 +216,7 @@ const Reports = () => {
             className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-xl text-sm transition-colors shadow-lg shadow-violet-500/20 disabled:opacity-50"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            Generate Report ({isFolderMode ? 'PROJECT PDF' : settings.defaultReportFormat.toUpperCase()})
+            Generate Report ({isFolderMode ? 'PROJECT PDF' : 'PDF'})
           </button>
         )}
       </div>
@@ -245,106 +229,106 @@ const Reports = () => {
       )}
 
       {/* Report Summary Card */}
-      {analysisResult && (
+      {analysisResult ? (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass-panel p-5 grid grid-cols-2 md:grid-cols-4 gap-4 text-center"
+          className="grid grid-cols-1 md:grid-cols-2 gap-6"
         >
-          <div>
-            <p className="text-slate-400 text-xs mb-1">Total Files Analyzed</p>
-            <p className="text-2xl font-bold text-sky-400">{isFolderMode ? fileList.length : 1}</p>
+          {/* Card 1: Single File Report */}
+          <div className="glass-panel p-6 flex flex-col justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center text-violet-400">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-lg">Single File Executive PDF</h3>
+                  <p className="text-xs text-slate-400 font-mono">{analysisResult.file_name}</p>
+                </div>
+              </div>
+              <p className="text-sm text-slate-300 mb-4">
+                Official PDF compliance report containing violation audit trails, patch diffs, compliance metrics, and score validation.
+              </p>
+              <div className="bg-slate-800/50 p-4 rounded-xl space-y-2 text-xs font-mono">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Target File:</span>
+                  <span className="text-white font-bold">{analysisResult.file_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Compliance Score:</span>
+                  <span className="text-emerald-400 font-bold">{overallScoreVal}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Baseline Violations:</span>
+                  <span className="text-white font-bold">{totalViol}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Accepted Fixes:</span>
+                  <span className="text-emerald-400 font-bold">{accepted}</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={downloadPDF}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-xl text-sm transition-colors shadow-lg shadow-violet-500/20 disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              Download Single File PDF
+            </button>
           </div>
-          <div>
-            <p className="text-slate-400 text-xs mb-1">Total Violations</p>
-            <p className="text-2xl font-bold text-white">{totalViol}</p>
-          </div>
-          <div>
-            <p className="text-slate-400 text-xs mb-1">Overall Compliance Score</p>
-            <p className="text-2xl font-bold text-emerald-400">{overallScoreVal.toFixed(1)}%</p>
-          </div>
-          <div>
-            <p className="text-slate-400 text-xs mb-1">Accepted Patches</p>
-            <p className="text-2xl font-bold text-emerald-400">{accepted}</p>
-          </div>
-          <div>
-            <p className="text-slate-400 text-xs mb-1">Rejected</p>
-            <p className="text-xl font-bold text-red-400">{rejected}</p>
-          </div>
-          <div>
-            <p className="text-slate-400 text-xs mb-1">Skipped</p>
-            <p className="text-xl font-bold text-slate-400">{skipped}</p>
-          </div>
-          <div>
-            <p className="text-slate-400 text-xs mb-1">Manual Fixes</p>
-            <p className="text-xl font-bold text-amber-400">{manual}</p>
-          </div>
-          <div>
-            <p className="text-slate-400 text-xs mb-1">Target</p>
-            <p className="text-sm font-bold text-slate-200 truncate">{isFolderMode ? folderName : analysisResult.file_name}</p>
+
+          {/* Card 2: JSON Artifact */}
+          <div className="glass-panel p-6 flex flex-col justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-sky-500/20 flex items-center justify-center text-sky-400">
+                  <FileJson className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-lg">Machine-Readable JSON</h3>
+                  <p className="text-xs text-slate-400 font-mono">Structure Data Payload</p>
+                </div>
+              </div>
+              <p className="text-sm text-slate-300 mb-4">
+                JSON compliance payload suitable for CI/CD pipelines, automated security scanning, and external auditing systems.
+              </p>
+              <div className="bg-slate-800/50 p-4 rounded-xl space-y-2 text-xs font-mono">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Format:</span>
+                  <span className="text-sky-400 font-bold">JSON 2.0</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Scope:</span>
+                  <span className="text-white font-bold">{isFolderMode ? 'Multi-File Folder' : 'Single Source File'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Status:</span>
+                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Validated
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={downloadJSON}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl text-sm transition-colors disabled:opacity-50"
+            >
+              <FileJson className="w-4 h-4 text-sky-400" />
+              Download JSON Report
+            </button>
           </div>
         </motion.div>
-      )}
-
-      {lastReport && (
-        <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 flex items-center gap-3 text-sm">
-          <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-          Report generated — <span className="font-mono">{lastReport.pdfFilename}</span>
+      ) : (
+        <div className="h-full flex items-center justify-center text-slate-500 flex-col gap-4">
+          <FileText className="w-12 h-12 text-slate-700" />
+          <p>No analysis result found. Please upload a C file or folder first.</p>
         </div>
       )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass-panel-interactive p-8 flex flex-col items-center justify-center text-center gap-4 relative overflow-hidden"
-        >
-          <div className="w-20 h-20 rounded-2xl bg-red-500/10 flex items-center justify-center">
-            <FileText className="w-10 h-10 text-red-400" />
-          </div>
-          <div>
-            <h3 className="text-xl font-bold text-white">
-              {isFolderMode ? 'Overall Project PDF Report' : 'PDF Compliance Report'}
-            </h3>
-            <p className="text-slate-400 text-sm mt-2">
-              {isFolderMode
-                ? `Comprehensive project report for folder ${folderName} summarizing all ${fileList.length} analyzed C files.`
-                : 'Comprehensive human-readable report including scores, violations, and applied patches.'}
-            </p>
-          </div>
-          <button
-            onClick={isFolderMode ? downloadProjectPDF : downloadPDF}
-            disabled={loading || !analysisResult}
-            className="mt-4 flex items-center gap-2 px-6 py-3 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            {isFolderMode ? 'Download Project PDF' : 'Download PDF'}
-          </button>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="glass-panel-interactive p-8 flex flex-col items-center justify-center text-center gap-4 relative overflow-hidden"
-        >
-          <div className="w-20 h-20 rounded-2xl bg-amber-500/10 flex items-center justify-center">
-            <FileJson className="w-10 h-10 text-amber-400" />
-          </div>
-          <div>
-            <h3 className="text-xl font-bold text-white">JSON Audit Log</h3>
-            <p className="text-slate-400 text-sm mt-2">Machine-readable verification output for CI/CD pipelines and auditing tools.</p>
-          </div>
-          <button
-            onClick={downloadJSON}
-            disabled={loading || !analysisResult}
-            className="mt-4 flex items-center gap-2 px-6 py-3 bg-amber-500/20 text-amber-300 rounded-lg hover:bg-amber-500/30 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            Download JSON
-          </button>
-        </motion.div>
-      </div>
     </div>
   );
 };

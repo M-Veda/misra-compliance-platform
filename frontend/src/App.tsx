@@ -1,5 +1,5 @@
 
-import { FileSearch, ShieldAlert, FileText, Settings, LayoutDashboard, Cpu, FileCode2 } from 'lucide-react';
+import { FileSearch, ShieldAlert, FileText, LayoutDashboard, Cpu, FileCode2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Components
@@ -8,13 +8,11 @@ import Analysis from './components/Analysis';
 import Violations from './components/Violations';
 import Reports from './components/Reports';
 import GeneratedCode from './components/GeneratedCode';
-import SettingsPage from './components/Settings';
 
 import { useAppContext } from './context/AppContext';
 
 const App = () => {
-  const { activeTab, setActiveTab, settings } = useAppContext();
-  const isLight = settings.theme === 'light';
+  const { activeTab, setActiveTab } = useAppContext();
 
   const navItems = [
     { id: 'dashboard',      label: 'Dashboard',          icon: LayoutDashboard },
@@ -25,7 +23,7 @@ const App = () => {
   ];
 
   return (
-    <div className={`flex h-screen overflow-hidden font-sans transition-colors duration-300 ${isLight ? 'bg-slate-100 text-slate-900' : 'bg-slate-900 text-slate-50'}`}>
+    <div className="flex h-screen overflow-hidden font-sans transition-colors duration-300 bg-slate-900 text-slate-50">
       {/* Sidebar */}
       <motion.div 
         initial={{ x: -280 }}
@@ -70,27 +68,6 @@ const App = () => {
             );
           })}
         </nav>
-
-        <div className="p-4 border-t border-slate-700/50">
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 relative group overflow-hidden ${
-              activeTab === 'settings'
-                ? 'text-white'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-            }`}
-          >
-            {activeTab === 'settings' && (
-              <motion.div
-                layoutId="activeTab"
-                className="absolute inset-0 bg-violet-500/10 border border-violet-500/20 rounded-xl z-0"
-                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-              />
-            )}
-            <Settings className={`w-5 h-5 relative z-10 transition-colors duration-300 ${activeTab === 'settings' ? 'text-violet-400' : 'group-hover:text-violet-400'}`} />
-            <span className="font-medium relative z-10">Settings</span>
-          </button>
-        </div>
       </motion.div>
 
       {/* Main Content */}
@@ -112,7 +89,6 @@ const App = () => {
               {activeTab === 'violations'     && <Violations />}
               {activeTab === 'generated-code' && <GeneratedCode />}
               {activeTab === 'reports'        && <Reports />}
-              {activeTab === 'settings'       && <SettingsPage />}
             </motion.div>
           </AnimatePresence>
         </main>

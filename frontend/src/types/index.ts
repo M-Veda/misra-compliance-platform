@@ -145,44 +145,6 @@ export interface AnalysisMetrics {
   compliance_score: number;
 }
 
-// ─── App settings ───────────────────────────────────────────────────────────
-export interface AppSettings {
-  // Appearance
-  theme: 'dark' | 'light';
-  fontSize: number;
-  showLineNumbers: boolean;
-  wordWrap: boolean;
-
-  // Review Preferences
-  confirmBulkActions: boolean;
-  confirmReanalysis: boolean;
-  autoScrollNextViolation: boolean;
-
-  // AI
-  enableAIExplanations: boolean;
-
-  // Generated Code
-  filenameSuffix: string;
-
-  // Reports
-  defaultReportFormat: 'pdf' | 'json' | 'both';
-  autoOpenReport: boolean;
-}
-
-export const DEFAULT_SETTINGS: AppSettings = {
-  theme: 'dark',
-  fontSize: 14,
-  showLineNumbers: true,
-  wordWrap: true,
-  confirmBulkActions: true,
-  confirmReanalysis: false,
-  autoScrollNextViolation: true,
-  enableAIExplanations: true,
-  filenameSuffix: '_fixed',
-  defaultReportFormat: 'pdf',
-  autoOpenReport: false,
-};
-
 // ─── Per-file session state ─────────────────────────────────────────────────
 export interface FileAnalysisItem {
   file_name: string;

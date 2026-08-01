@@ -1,102 +1,108 @@
-# MISRA AI Compliance Agent — API Documentation
+# MISRA C:2012 Static Analyzer — REST API Documentation
 
-> **Base URL**: `http://127.0.0.1:8000/api`  
-> **Protocol**: HTTP / JSON / Multipart Form-Data
-
----
-
-## 1. Endpoints Overview
-
-| Method | Endpoint | Description | Request Payload | Response Payload |
-| :---: | :--- | :--- | :--- | :--- |
-| **POST** | `/api/upload` | Analyzes a C file against all 10 MISRA rules | `multipart/form-data` (`file`) | `AnalysisResult` |
-| **GET** | `/api/rules` | Returns metadata for all 10 implemented rules | None | `{ supported_rules_count, rules }` |
-| **POST** | `/api/preview-patch` | Generates patch preview for single violation | `PatchRequest` (JSON) | `PatchResponse` |
-| **POST** | `/api/apply-patches` | Transactional bulk patch application | `BulkPatchRequest` (JSON) | `BulkPatchResponse` |
-| **POST** | `/api/explain` | Generates LLM explanation of violation | `{ source_code, violation }` | `{ explanation }` |
-| **POST** | `/api/generate-report` | Generates single-file PDF/JSON report | `ReportRequest` (JSON) | `{ success, pdf_report_filename, json_report }` |
-| **POST** | `/api/generate-project-report` | Generates folder project PDF report | `ProjectReportRequest` | `{ success, pdf_report_filename }` |
-| **GET** | `/api/download-pdf/{filename}` | Downloads generated PDF report | None (Path Parameter) | `application/pdf` file stream |
-| **POST** | `/api/download-zip` | Packages corrected files into ZIP archive | `DownloadZipRequest` | `application/zip` file stream |
+> **Date**: August 1, 2026  
+> **Status**: Release Baseline 1.0  
+> **Base URL**: `http://127.0.0.1:8000/api`
 
 ---
 
-## 2. Detailed Endpoint Schemas
+## 1. Endpoints Specification
 
-### 2.1 `/api/upload`
-- **Method**: `POST`
-- **Content-Type**: `multipart/form-data`
-- **Form Data**: `file` (C source file, e.g. `small.c`)
-- **Response Example**:
+### GET `/api/rules`
+Returns metadata about the 10 supported MISRA C:2012 rules.
+
+- **Response (200 OK)**:
 ```json
 {
-  "success": true,
-  "file_name": "small.c",
-  "source_code": "int func_0(int a, int b) {\n...\n}",
-  "violations": [
+  "supported_rules_count": 10,
+  "rules": [
     {
-      "rule_number": "8.4",
-      "rule_name": "Function prototype required",
+      "rule_number": "2.2",
+      "rule_name": "No dead code",
       "severity": "Required",
-      "category": "Declarations",
-      "file": "small.c",
-      "line": 5,
-      "column": 1,
-      "message": "Function 'func_0' defined without a visible prototype.",
-      "code_snippet": "int func_0(int a, int b) {",
-      "reason": "Function 'func_0' has external linkage...",
-      "suggested_fix": "int func_0(int a, int b);",
-      "confidence": 1.0,
-      "ast_node_type": "FuncDef",
-      "scope_name": "__global__",
-      "stable_id": "8_4_FuncDef___global___a1b2c3d4"
+      "category": "Unused Code",
+      "description": "There shall be no dead or unreachable code."
     }
-  ],
-  "compliance_score": 60.0
+  ]
 }
 ```
 
 ---
 
-### 2.2 `/api/preview-patch`
-- **Method**: `POST`
-- **Request Payload**:
+### POST `/api/upload`
+Uploads a `.c` source file, parses AST, runs the rule engine, and returns detected violations with structured `patch_preview` objects.
+
+- **Form Data**: `file` (multipart/form-data, `.c` file)
+- **Response (200 OK)**:
 ```json
 {
-  "source_code": "int func_0(int a, int b) { ... }",
+  "success": true,
+  "file_name": "small.c",
+  "source_code": "... source content ...",
+  "violations": [
+    {
+      "rule_number": "2.2",
+      "rule_name": "No dead code",
+      "severity": "Required",
+      "category": "Unused Code",
+      "file": "small.c",
+      "line": 48,
+      "column": 5,
+      "message": "Statement has no side effects and its result is discarded.",
+      "code_snippet": "12345;",
+      "reason": "...",
+      "suggested_fix": "/* Dead code removed */",
+      "confidence": 1.0,
+      "patch_preview": { ... }
+    }
+  ],
+  "compliance_score": 70.0
+}
+```
+
+---
+
+### POST `/api/preview-patch`
+Generates a side-by-side patch preview for a single violation without modifying file state.
+
+- **Request Body**:
+```json
+{
+  "source_code": "...",
   "violation": { ... },
   "decision": "Accept",
   "manual_code": null
 }
 ```
-- **Response Payload**:
+- **Response (200 OK)**:
 ```json
 {
   "success": true,
-  "modified_code": "int func_0(int a, int b);\nint func_0(int a, int b) { ... }",
+  "modified_code": "... modified code ...",
   "can_autopatch": true,
   "patch_actually_changed": true,
   "no_patch_reason": "",
-  "error": null
+  "patch_preview": { ... }
 }
 ```
 
 ---
 
-### 2.3 `/api/apply-patches`
-- **Method**: `POST`
-- **Request Payload**:
+### POST `/api/apply-patches`
+Applies all approved violations as an atomic, multi-pass, bottom-up transaction.
+
+- **Request Body**:
 ```json
 {
-  "source_code": "int func_0(int a, int b) { ... }",
-  "violations": [ { ... } ]
+  "source_code": "...",
+  "violations": [ ... ]
 }
 ```
-- **Response Payload**:
+- **Response (200 OK)**:
 ```json
 {
   "success": true,
-  "modified_code": "/* patched source code */",
+  "modified_code": "... patched code ...",
   "ops_applied": 10,
   "ops_skipped_already_applied": 0,
   "ops_rejected_validation": 0,
@@ -106,3 +112,50 @@
   "error": null
 }
 ```
+
+---
+
+### POST `/api/explain`
+Generates a plain-language explanation of why a violation exists and how the fix resolves it.
+
+- **Request Body**: `{ "source_code": "...", "violation": { ... } }`
+- **Response (200 OK)**: `{ "explanation": "..." }`
+
+---
+
+### POST `/api/generate-report`
+Generates a ReportLab PDF compliance report and returns filename metadata.
+
+- **Request Body**:
+```json
+{
+  "file_name": "small.c",
+  "original_code": "...",
+  "corrected_code": "...",
+  "violations": [ ... ],
+  "decisions": { ... },
+  "compliance_score": 100.0
+}
+```
+- **Response (200 OK)**: `{ "success": true, "json_report": { ... }, "pdf_report_filename": "MISRA_Report_small_c.pdf" }`
+
+---
+
+### GET `/api/download-pdf/{filename}`
+Downloads the generated PDF compliance report file.
+
+---
+
+### POST `/api/download-zip`
+Packages all corrected C files in a folder session into a downloadable ZIP archive.
+
+- **Request Body**: `{ "folder_name": "perf_test", "files": [ { "file_name": "small.c", "corrected_code": "..." } ] }`
+- **Response (200 OK)**: ZIP binary file response (`perf_test_fixed.zip`).
+
+---
+
+### POST `/api/generate-project-report`
+Generates an executive multi-file project summary PDF report.
+
+- **Request Body**: `{ "folder_name": "perf_test", "files_summary": [ ... ], "overall_score": 80.0, "total_files": 3, "total_violations": 40 }`
+- **Response (200 OK)**: `{ "success": true, "pdf_report_filename": "MISRA_Project_Report_perf_test.pdf" }`

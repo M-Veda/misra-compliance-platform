@@ -1,64 +1,59 @@
-# MISRA AI Compliance Agent — Workflow Documentation
+# MISRA C:2012 Static Analyzer — Workflow Documentation
 
-> **Verification Scope**: Validated for the current implemented rule set and tested against the documented scenarios.
-
----
-
-## 1. End-to-End User Workflow Diagram
-
-```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────────┐
-│  1. FILE UPLOAD │ ──▶ │ 2. AST ANALYSIS  │ ──▶ │ 3. VIOLATIONS LIST  │
-│ Single C file / │     │ pycparser AST    │     │ Sorted by Rule &    │
-│ Folder Traversal│     │ Rule Detection   │     │ Severity Level      │
-└─────────────────┘     └──────────────────┘     └──────────┬──────────┘
-                                                            │
-                                                            ▼
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────────┐
-│  6. RE-ANALYSIS │ ◄── │ 5. WORKING CODE  │ ◄── │ 4. HUMAN DECISION   │
-│ Verification    │     │ Single Source of │     │ Accept Patch /      │
-│ Check on Code   │     │ Truth Updated    │     │ Manual Fix / Reject │
-└────────┬────────┘     └──────────────────┘     └─────────────────────┘
-         │
-         ▼
-┌─────────────────┐     ┌──────────────────┐
-│  7. REPORT &    │ ──▶ │ 8. ARTIFACT ZIP  │
-│  PDF GENERATE   │     │ Download Final   │
-│ Compliance PDF  │     │ Refactored Code  │
-└─────────────────┘     └──────────────────┘
-```
+> **Date**: August 1, 2026  
+> **Status**: Release Baseline 1.0
 
 ---
 
-## 2. Step-by-Step Workflow Detailed Breakdown
+## 1. End-to-End User Workflows
 
-### Step 1: File / Folder Upload
-- User drops a single `.c` file or selects a directory.
-- Folder upload recursively collects `.c` files and ignores all non-C file extensions (`.h`, `.txt`, `.md`, `.json`).
-- If no `.c` files exist, displays `"No C source files found in the selected folder."`
+### Workflow 1: Single File Upload & Analysis
+1. User navigates to **Analysis Engine**.
+2. User selects or drops a `.c` source file.
+3. Backend `/api/upload` endpoint parses AST, runs all 10 rule checkers, computes baseline compliance score, and returns violations list with structured `patch_preview` objects.
+4. UI transitions automatically to **Violations Review**.
 
-### Step 2: AST Analysis
-- Frontend sends C source to `/api/upload`.
-- Backend cleans `#include` statements, prepends fake libc definitions, builds AST via `pycparser`, and runs all 10 rule visitors.
-- Freezes baseline `all_violations` and initializes `workingCode`.
+### Workflow 2: Multi-File Folder Upload & Analysis
+1. User drops a folder containing multiple `.c` files in **Analysis Engine**.
+2. Frontend creates a `FileAnalysisItem` for each file and runs AST analysis.
+3. User can switch active files using the **Active File Selector** dropdown present across Violations, Generated Code, and Reports pages.
 
-### Step 3: Human-in-the-Loop Violations Review
-- User selects an issue from the left panel.
-- System queries `/api/preview-patch`.
-- If `can_autopatch == True`, Monaco Diff Editor displays original vs proposed patch.
-- If `can_autopatch == False`, system renders `NoPatchPanel` showing reason and manual fix instructions. `Accept Patch` button is disabled.
+---
 
-### Step 4: Decision & Patch Application
-- **Accept Patch**: Validates patch produces non-empty modification. Updates `workingCode`.
-- **Manual Fix**: User enters replacement in code editor. System commits user code to `workingCode`.
-- **Bulk Accept**: Applies non-overlapping patches in a single bottom-up transaction. Updates `workingCode` once.
+## 2. Human-in-the-Loop Review Workflow
 
-### Step 5: Verification Re-Analysis
-- User clicks `Re-analyze Code`.
-- System posts `workingCode` to `/api/upload`.
-- Updates active `violations` list and compliance score.
-- **`all_violations` baseline and previous decisions remain frozen.**
+On the **Violations Review** page:
 
-### Step 6: Generated Code & Export Reports
-- **Generated Code Tab**: Displays finalized `workingCode`. User downloads single file or folder `.zip`.
-- **Reports Tab**: User downloads PDF report (`MISRA_Report_...pdf` or `MISRA_Project_Report_...pdf`) and JSON verification artifacts.
+1. **Selecting an Issue**:
+   - Selecting a violation from the left panel triggers `/api/preview-patch`.
+   - Monaco DiffEditor renders the side-by-side comparison of original vs proposed code.
+
+2. **Decision Actions**:
+   - **`Accept`**: Applies the proposed patch to `workingCode`, updates metrics (`accepted + 1`, `remaining - 1`), invalidates preview cache, and advances to the next violation.
+   - **`Reject`**: Marks violation as rejected (`rejected + 1`, `remaining - 1`), keeps original source unchanged, and advances to next violation.
+   - **`Skip`**: Defers violation review (`skipped + 1`, `remaining - 1`), source unchanged.
+   - **`Manual Fix`** (Pre-filled Workflow):
+     - Server/Frontend generates the best safe suggested patch.
+     - User is presented with: Original Snippet $\rightarrow$ Suggested Fix $\rightarrow$ Pre-filled Code Editor initialized with the suggested patch.
+     - User refines formatting, modifies parentheses, or rewrites logic in the editor.
+     - User clicks **Confirm Manual Fix** to apply changes to `workingCode`.
+
+3. **Bulk Actions (`Accept All`)**:
+   - Clicking **Bulk Actions $\rightarrow$ Accept All Violations** triggers a multi-pass atomic bulk transaction via `/api/apply-patches`.
+   - All auto-patchable violations are applied bottom-up in byte offset order.
+   - AST verification scan is executed on the resulting code to verify syntax validity.
+   - Counters commit atomically once.
+
+4. **Re-Analysis**:
+   - Clicking **Re-analyze Code** posts the current `workingCode` to `/api/upload`.
+   - Analyzes remaining violations on the latest modified code without resetting baseline violation history.
+
+---
+
+## 3. Executive Report Generation Workflow
+
+1. User navigates to **Compliance Reports**.
+2. User clicks **Generate Report (PDF)** or **Download JSON Report**.
+3. Backend `/api/generate-report` serializes finalized session data, generating a ReportLab PDF with clean Latin-1 encoding.
+4. In folder mode, clicking **Generate Report (PROJECT PDF)** calls `/api/generate-project-report` to generate an executive multi-file summary PDF.
+5. User can also download all fixed `.c` files as a single ZIP archive via **Download All Fixed Files (ZIP)** (`/api/download-zip`).

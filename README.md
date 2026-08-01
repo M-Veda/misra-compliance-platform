@@ -25,29 +25,23 @@ MISRA_Project/
 ├── backend/                    # FastAPI backend, pycparser AST detectors & patch engine
 ├── frontend/                   # React 18 SPA, Vite, TypeScript, Monaco Editor
 ├── perf_test/                  # Benchmark test C source files (small.c, medium.c, large.c)
-├── docs/                       # Consolidated Documentation Suite (15 Markdown Files)
+├── docs/                       # Consolidated Documentation Suite (12 Markdown Files)
 │   ├── API_DOCUMENTATION.md
 │   ├── BACKEND_DOCUMENTATION.md
-│   ├── CLEANUP_REPORT.md
-│   ├── FEATURE_STATUS.md
-│   ├── FILE_REFERENCE.md
+│   ├── DEMO_SUITE_GUIDE.md
 │   ├── FINAL_PRODUCTION_VERIFICATION_REPORT.md
 │   ├── FRONTEND_DOCUMENTATION.md
 │   ├── LIMITATIONS_AND_FUTURE_WORK.md
-│   ├── MODULE_REFERENCE.md
-│   ├── PROJECT_HANDOVER.md
 │   ├── PROJECT_OVERVIEW.md
-│   ├── PROJECT_STRUCTURE.md
 │   ├── RULE_IMPLEMENTATION_GUIDE.md
 │   ├── SYSTEM_ARCHITECTURE.md
+│   ├── TECHNICAL_AUDIT_REPORT.md
+│   ├── TESTING_AND_VALIDATION.md
 │   └── WORKFLOW_DOCUMENTATION.md
-
-├── scripts/                    # Developer test & evidence collection utilities
+├── scripts/                    # Validation & benchmark test suite
 │   ├── run_full_validation_suite.py
-│   ├── generate_comprehensive_evidence.py
-│   ├── benchmark_performance.py
-│   ├── api_integration_test.py
-│   └── generate_example_reports.py
+│   ├── verify_demo_suite.py
+│   └── benchmark_performance.py
 ├── LICENSE                     # MIT License
 ├── requirements.txt            # Python dependencies
 ├── .gitignore                  # Git ignore configuration

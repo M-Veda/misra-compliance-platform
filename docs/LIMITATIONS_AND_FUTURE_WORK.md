@@ -1,25 +1,26 @@
-# MISRA AI Compliance Agent — Known Limitations & Future Work
+# MISRA C:2012 Static Analyzer — Known Limitations & Future Work
 
-> **Verification Scope**: Validated for the current implemented rule set and tested against the documented scenarios.
-
----
-
-## 1. Known Technical Limitations
-
-1. **Implemented Rule Coverage**:
-   - Currently implements 10 core MISRA C:2012 rules (2.2, 2.7, 8.4, 8.7, 9.1, 10.3, 12.1, 14.4, 15.5, 17.7). Full MISRA C:2012 coverage consists of 143 rules and 29 directives.
-2. **C Preprocessor Header Dependencies**:
-   - The parser strips `#include` statements and injects standard `fake_libc` definitions. Code relying on deep third-party or platform-specific header type definitions (e.g., custom vendor RTOS macros) may require additional `fake_libc` typedef declarations.
-3. **Manual-Only Remediation Rules**:
-   - Rules 9.1, 15.5, and 17.7 are intentionally manual. They require human architectural review for domain-specific initial values, single-exit function structure, or unchecked return value handling.
+> **Date**: August 1, 2026  
+> **Status**: Release Baseline 1.0
 
 ---
 
-## 2. Planned Future Work
+## 1. Documented Scope & Known Limitations
 
-1. **Rule Set Expansion**:
-   - Implement AST visitors for Rule 1.3 (Undefined behavior), Rule 5.1 (External identifier length), Rule 11.4 (Pointer conversion), and Rule 18.1 (Pointer arithmetic bounds).
-2. **Clang Static Analyzer Integration**:
-   - Integrate `clang-tidy` as an optional secondary analysis engine alongside `pycparser` for interprocedural taint analysis.
-3. **Automated CI/CD Pipeline Plugins**:
-   - Package the backend API as a GitHub Action and GitLab CI runner plugin for automated pull request compliance checks.
+1. **Rule 10.3 Partial Auto-Patch Policy**:
+   - **Safe Cases**: Automatically inserts explicit casts `(target_type)expr` for return statement type mismatches.
+   - **Manual Review Cases**: Conversions involving numeric literal suffixing (e.g. `0` vs `0U`) or implicit narrowing in variable initializations are intentionally left for manual developer review to prevent accidental runtime side effects.
+
+2. **Pre-processor Macro Expansions**:
+   - The pycparser AST engine requires standard C declarations. Code heavily relying on non-standard compiler attributes or complex macro wrappers should be pre-processed before analysis.
+
+3. **10 Supported Rules Baseline**:
+   - This release baseline is frozen for the 10 implemented MISRA C:2012 rules (`2.2`, `2.7`, `7.1`, `8.4`, `8.7`, `10.3`, `12.1`, `14.4`, `16.3`, `16.4`). Additional MISRA rules belong to future engineering cycles.
+
+---
+
+## 2. Future Work & Roadmap
+
+1. **Rule Expansion**: Implement AST checkers for additional MISRA C:2012 rules (e.g. pointer arithmetic, control flow bounds).
+2. **Clang / LLVM AST Integration**: Add Clang libclang binding for C11/C17 parsing compatibility.
+3. **IDE Integration**: Build VS Code / CLion extensions exposing live AST violation diagnostics and pre-filled manual fix popups directly in the editor.

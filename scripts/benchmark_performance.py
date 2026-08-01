@@ -2,7 +2,7 @@ import time
 import os
 import sys
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.services.parser import CParserService
 from backend.rules import ALL_RULES

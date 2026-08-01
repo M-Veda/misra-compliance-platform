@@ -105,16 +105,16 @@ def test_rule_by_rule_validation():
     print_step("TEST 5: Complete End-to-End Rule-by-Rule Validation (10 Rules)")
     rules = ["2.2", "2.7", "7.1", "8.4", "8.7", "10.3", "12.1", "14.4", "16.3", "16.4"]
     
-    filepath = "perf_test/multi_rule_test.c"
+    filepath = "perf_test/small.c"
     with open(filepath, "rb") as f:
-        resp = requests.post(f"{BASE_URL}/upload", files={"file": ("multi_rule_test.c", f, "text/plain")})
+        resp = requests.post(f"{BASE_URL}/upload", files={"file": ("small.c", f, "text/plain")})
     
     data = resp.json()
     violations = data["violations"]
     detected_rules = set(v["rule_number"] for v in violations)
     
     print(f"Target 10 Rules: {rules}")
-    print(f"Detected Rules in multi_rule_test.c: {sorted(list(detected_rules))}")
+    print(f"Detected Rules in small.c: {sorted(list(detected_rules))}")
     
     for rule in rules:
         rule_viols = [v for v in violations if v["rule_number"] == rule]
@@ -142,13 +142,13 @@ def test_rule_by_rule_validation():
 def test_reports_and_folder():
     print_step("TEST 6 & 7: Folder Mode, ZIP & PDF/JSON Report Validation")
     # Single file report
-    filepath = "perf_test/multi_rule_test.c"
+    filepath = "perf_test/small.c"
     with open(filepath, "rb") as f:
-        resp = requests.post(f"{BASE_URL}/upload", files={"file": ("multi_rule_test.c", f, "text/plain")})
+        resp = requests.post(f"{BASE_URL}/upload", files={"file": ("small.c", f, "text/plain")})
     
     data = resp.json()
     report_req = {
-        "file_name": "multi_rule_test.c",
+        "file_name": "small.c",
         "original_code": data["source_code"],
         "corrected_code": data["source_code"],
         "violations": data["violations"],
@@ -182,7 +182,7 @@ def test_reports_and_folder():
                 "decisions": {}
             },
             {
-                "file_name": "multi_rule_test.c",
+                "file_name": "medium.c",
                 "compliance_score": 85.0,
                 "total_violations": 10,
                 "remaining_violations": 2,

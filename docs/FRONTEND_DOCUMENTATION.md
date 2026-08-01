@@ -1,77 +1,40 @@
-# MISRA AI Compliance Agent — Frontend Documentation
+# MISRA C:2012 Static Analyzer — Frontend Documentation
 
-> **Verification Scope**: Validated for the current implemented rule set and tested against the documented scenarios.
-
----
-
-## 1. Structure & Technology Stack
-
-- **Framework**: React 18 with TypeScript (`tsc -b`)
-- **Build Tool**: Vite 8.1.5
-- **Styling**: Vanilla CSS, TailwindCSS utilities, Framer Motion animations
-- **Code Editor**: Monaco Diff Editor (`@monaco-editor/react`)
-- **Icons**: Lucide React (`lucide-react`)
-
-```
-frontend/src/
-├── App.tsx                     # Navigation header & tab layout router
-├── main.tsx                    # React DOM entry point wrapped in AppProvider
-├── index.css                   # Global CSS & glass-panel styling
-├── types/
-│   └── index.ts                # TypeScript types, PatchState, violationStableKey
-├── context/
-│   └── AppContext.tsx          # Single source of truth React Context & getAnalysisMetrics
-└── components/
-    ├── Analysis.tsx            # Single file & folder upload tab
-    ├── Dashboard.tsx           # Metrics dashboard & rule distribution pie chart
-    ├── Violations.tsx          # Human-in-the-loop review, preview, manual fix, bulk actions
-    ├── GeneratedCode.tsx       # Authoritative working copy viewer & download
-    ├── Reports.tsx             # PDF/JSON report generation & project report tab
-    ├── BulkActionModal.tsx     # Transactional bulk decision modal
-    └── Settings.tsx            # User preferences & theme settings
-```
+> **Date**: August 1, 2026  
+> **Status**: Release Baseline 1.0
 
 ---
 
-## 2. Centralized State Architecture (`AppContext.tsx`)
+## 1. Frontend Technologies & Architecture
 
-### 2.1 Key State Variables
-- **`workingCode`**: The authoritative mutable copy of the code. **All Accept and Manual patch applications update this variable.**
-- **`allViolations`**: Immutable baseline snapshot taken on initial analysis. **Guarded against overwrite.**
-- **`decisions`**: Map of `violationStableKey(v) -> DecisionType` (`'Accept' | 'Reject' | 'Skip' | 'Manual'`).
-- **`manualCodes`**: Map of `violationStableKey(v) -> string` storing manually entered replacement code.
-- **`fileList`**: In folder mode, contains `FileAnalysisItem[]` where each file preserves its own `working_code`, `all_violations`, and `decisions`.
-
-### 2.2 Unified Metrics Hook (`getAnalysisMetrics`)
-All pages compute statistics through `getAnalysisMetrics(fileIdx?)`. It calculates:
-- `total_detected`: `all_violations.length`
-- `accepted`: count of decisions equal to `'Accept'`
-- `rejected`: count of decisions equal to `'Reject'`
-- `skipped`: count of decisions equal to `'Skip'`
-- `manual`: count of decisions equal to `'Manual'`
-- `remaining`: `violations.length`
-- `compliance_score`: $100.0$ if remaining is 0, else $\max(0, 100 - \text{rules\_violated} \times 10)$.
+- **Core Framework**: React 18 + TypeScript + Vite
+- **Styling**: Tailwind CSS with sleek dark theme aesthetics, glassmorphism panels (`glass-panel`), and custom scrollbars
+- **Editor & Diffs**: `@monaco-editor/react` (Monaco `DiffEditor` and `Editor`)
+- **Icons & Animations**: `lucide-react` icons and `framer-motion` page transitions
 
 ---
 
-## 3. View Specifications
+## 2. Page & Component Structure
 
-### 3.1 Analysis Tab (`Analysis.tsx`)
-- Supports single `.c` file drag-and-drop or selection.
-- Supports folder upload (`webkitdirectory`). Traverses recursively, filters for `.c` extensions, and displays a summary card before analysis.
-- Calls `resetSession()`, sets `workingCode`, and freezes `allViolations` baseline.
+1. **`App.tsx`**: Top-level layout with sidebar navigation (Dashboard, Analysis Engine, Violations Review, Generated Code, Compliance Reports).
+2. **`Dashboard.tsx`**: High-level compliance overview, active metrics (Accepted, Rejected, Skipped, Manual, Remaining), compliance gauge chart, and recent scan logs.
+3. **`Analysis.tsx`**: Single-file and folder upload drag-and-drop zone. Displays initial rule engine parsing progress and violation count summaries.
+4. **`Violations.tsx`**: Main human-in-the-loop review workspace:
+   - Monaco DiffEditor rendering side-by-side patch previews.
+   - Action buttons: `Accept`, `Reject`, `Skip`, `Accept All`, and `Manual Fix`.
+   - **Pre-filled Manual Fix Workflow**: Pre-fills the code editor with the analyzer's best safe suggestion. Displays Original Snippet $\rightarrow$ Analyzer Suggestion $\rightarrow$ Pre-filled Editable Code Editor.
+5. **`GeneratedCode.tsx`**: Monaco editor displaying `workingCode` (the single source of truth for corrected code). Includes copy to clipboard, individual `.c` download, and multi-file ZIP archive download.
+6. **`Reports.tsx`**: Report generation hub for Single File PDF, Project PDF, and machine-readable JSON artifacts.
+7. **`BulkActionModal.tsx`**: Multi-pass atomic bulk action transaction modal.
 
-### 3.2 Violations Review Tab (`Violations.tsx`)
-- **Stable Violation Indexing**: Uses `violationStableKey(v)`.
-- **Preview Cache**: `previewCache` ref caches preview responses keyed by `${stable_id}:${working_code_hash}`.
-- **`NoPatchPanel`**: Rendered automatically when `canAutopatch === false`. Displays violation details, reason, recommended fix, and an `[ Enter Manual Fix ]` button.
-- **Accept Button Guard**: Enabled ONLY when `canAutopatch === true` AND `patchedCode !== workingCode`.
-- **Atomic Bulk Accept**: Executes bulk transaction, commits `workingCode` once, updates context state once.
-- **Verification Re-Analysis**: Analyzes `workingCode`. Preserves `allViolations` baseline and `decisions` map. Updates remaining violations and compliance score.
+---
 
-### 3.3 Generated Code Tab (`GeneratedCode.tsx`)
-- Displays `workingCode` exclusively using Monaco Editor.
-- Provides individual file download (`filename_fixed.c`) and full folder `.zip` download (`folder_fixed.zip`).
+## 3. State Management (`AppContext.tsx`)
 
-### 3.4 Reports Tab (`Reports.tsx`)
-- Serializes `getAnalysisMetrics()` data for single file PDF/JSON generation and multi-file project report PDF generation.
+`AppContext` is the single source of truth for session data:
+
+- `workingCode`: Current authoritative modified code.
+- `allViolations`: Immutable baseline violations snapshot set on initial upload.
+- `decisions`: Map storing decisions per violation key (`Accept`, `Reject`, `Skip`, `Manual`).
+- `getAnalysisMetrics()`: Computes synchronized metrics:
+  $$\text{Accepted} + \text{Rejected} + \text{Skipped} + \text{Manual} + \text{Remaining} = \text{Total Baseline Violations}$$
