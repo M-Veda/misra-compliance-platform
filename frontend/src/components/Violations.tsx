@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Code, Check, X, SkipForward, MessageSquare, Terminal, Loader2,
   RefreshCw, Search, Edit3, ChevronDown, Zap, Folder, ArrowRight
@@ -19,39 +19,7 @@ const SEVERITY_COLORS: Record<string, string> = {
   Advisory:  'bg-blue-500/20 text-blue-400',
 };
 
-// ─── Bulk Actions menu ────────────────────────────────────────────────────────
-
 type BulkItem = { decision: BulkDecision; severity: BulkSeverityFilter; label: string };
-
-const BULK_GROUPS: { group: string; color: string; items: BulkItem[] }[] = [
-  {
-    group: 'Accept', color: 'text-emerald-400',
-    items: [
-      { decision: 'Accept', severity: 'All',       label: 'All Violations' },
-      { decision: 'Accept', severity: 'Mandatory', label: 'Mandatory' },
-      { decision: 'Accept', severity: 'Required',  label: 'Required' },
-      { decision: 'Accept', severity: 'Advisory',  label: 'Advisory' },
-    ],
-  },
-  {
-    group: 'Reject', color: 'text-red-400',
-    items: [
-      { decision: 'Reject', severity: 'All',       label: 'All Violations' },
-      { decision: 'Reject', severity: 'Mandatory', label: 'Mandatory' },
-      { decision: 'Reject', severity: 'Required',  label: 'Required' },
-      { decision: 'Reject', severity: 'Advisory',  label: 'Advisory' },
-    ],
-  },
-  {
-    group: 'Skip', color: 'text-slate-400',
-    items: [
-      { decision: 'Skip', severity: 'All',       label: 'All Violations' },
-      { decision: 'Skip', severity: 'Mandatory', label: 'Mandatory' },
-      { decision: 'Skip', severity: 'Required',  label: 'Required' },
-      { decision: 'Skip', severity: 'Advisory',  label: 'Advisory' },
-    ],
-  },
-];
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
@@ -590,6 +558,42 @@ const Violations = () => {
   const currentWorking = workingCode || analysisResult.source_code;
   const metrics = getAnalysisMetrics();
 
+  // Dynamic Bulk Action groups — only render categories that exist in active violations
+  const dynamicBulkGroups = useMemo(() => {
+    if (!analysisResult) return [];
+    const active = analysisResult.violations.filter(v => !decisions[violationStableKey(v)]);
+    if (active.length === 0) return [];
+
+    const counts = {
+      All: active.length,
+      Mandatory: active.filter(v => v.severity === 'Mandatory').length,
+      Required:  active.filter(v => v.severity === 'Required').length,
+      Advisory:  active.filter(v => v.severity === 'Advisory').length,
+    };
+
+    const categories: { severity: BulkSeverityFilter; label: string }[] = [
+      { severity: 'All', label: `All Violations (${counts.All})` }
+    ];
+    if (counts.Mandatory > 0) categories.push({ severity: 'Mandatory', label: `Mandatory (${counts.Mandatory})` });
+    if (counts.Required > 0)  categories.push({ severity: 'Required', label: `Required (${counts.Required})` });
+    if (counts.Advisory > 0)  categories.push({ severity: 'Advisory', label: `Advisory (${counts.Advisory})` });
+
+    return [
+      {
+        group: 'Accept', color: 'text-emerald-400',
+        items: categories.map(c => ({ decision: 'Accept' as BulkDecision, severity: c.severity, label: c.label }))
+      },
+      {
+        group: 'Reject', color: 'text-red-400',
+        items: categories.map(c => ({ decision: 'Reject' as BulkDecision, severity: c.severity, label: c.label }))
+      },
+      {
+        group: 'Skip', color: 'text-slate-400',
+        items: categories.map(c => ({ decision: 'Skip' as BulkDecision, severity: c.severity, label: c.label }))
+      },
+    ];
+  }, [analysisResult, decisions]);
+
   const filteredViolations = analysisResult.violations.filter(v => {
     const matchesSearch   = v.rule_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             v.rule_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -679,24 +683,30 @@ const Violations = () => {
                     transition={{ duration: 0.15 }}
                     className="absolute right-0 top-full mt-2 w-56 rounded-xl bg-slate-800 border border-slate-700/80 shadow-2xl shadow-black/40 z-30 overflow-hidden"
                   >
-                    {BULK_GROUPS.map((group, gi) => (
-                      <div key={group.group}>
-                        {gi > 0 && <div className="h-px bg-slate-700/60 mx-2" />}
-                        <div className={`px-3 py-2 text-[11px] font-bold uppercase tracking-widest ${group.color}`}>
-                          {group.group}
-                        </div>
-                        {group.items.map(item => (
-                          <button
-                            key={`${item.decision}-${item.severity}`}
-                            onClick={() => handleBulkMenuSelect(item)}
-                            className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-2"
-                          >
-                            <span className="text-slate-500">›</span>
-                            {item.label}
-                          </button>
-                        ))}
+                    {dynamicBulkGroups.length === 0 ? (
+                      <div className="px-4 py-3 text-xs text-slate-400 text-center">
+                        No undecided violations remaining
                       </div>
-                    ))}
+                    ) : (
+                      dynamicBulkGroups.map((group, gi) => (
+                        <div key={group.group}>
+                          {gi > 0 && <div className="h-px bg-slate-700/60 mx-2" />}
+                          <div className={`px-3 py-2 text-[11px] font-bold uppercase tracking-widest ${group.color}`}>
+                            {group.group}
+                          </div>
+                          {group.items.map(item => (
+                            <button
+                              key={`${item.decision}-${item.severity}`}
+                              onClick={() => handleBulkMenuSelect(item)}
+                              className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-2"
+                            >
+                              <span className="text-slate-500">›</span>
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                      ))
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -735,19 +745,25 @@ const Violations = () => {
                 />
               </div>
               <div className="flex gap-1 overflow-x-auto text-[11px] font-semibold">
-                {['All', 'Mandatory', 'Required', 'Advisory'].map((sev) => (
-                  <button
-                    key={sev}
-                    onClick={() => setSeverityFilter(sev)}
-                    className={`px-2 py-1 rounded transition-colors ${
-                      severityFilter === sev
-                        ? 'bg-violet-500 text-white'
-                        : 'bg-slate-800 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    {sev}
-                  </button>
-                ))}
+                {['All', 'Mandatory', 'Required', 'Advisory'].map((sev) => {
+                  const count = sev === 'All'
+                    ? analysisResult.violations.length
+                    : analysisResult.violations.filter(v => v.severity === sev).length;
+                  if (sev !== 'All' && count === 0) return null;
+                  return (
+                    <button
+                      key={sev}
+                      onClick={() => setSeverityFilter(sev as BulkSeverityFilter)}
+                      className={`px-2 py-1 rounded transition-colors flex items-center gap-1 ${
+                        severityFilter === sev
+                          ? 'bg-violet-500 text-white font-bold'
+                          : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      {sev} <span className="text-[10px] opacity-75 font-mono">({count})</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

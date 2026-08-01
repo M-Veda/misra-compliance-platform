@@ -48,11 +48,25 @@ static void check_status(void) {
     }
 }
 
+static void log_system_state(int state) {
+    if (state > 0) {
+        printf("System State Active: %d\n", state);
+    }
+}
+
+static int compute_offset(int base, int gain) {
+    return (base * gain) + 5;
+}
+
 int main(void) {
-    calculate_sensor_hash(42);
+    int hash_val = calculate_sensor_hash(42);
     sensor_init(100);
-    read_sensor_temp();
+    int temp = read_sensor_temp();
     process_sensor_mode(1);
     check_status();
+    log_system_state(1);
+    int offset = compute_offset(temp, 2);
+    (void)hash_val;
+    (void)offset;
     return 0;
 }

@@ -93,10 +93,10 @@ MISRA_Project/
 │   ├── package.json
 │   └── vite.config.ts
 ├── perf_test/                    # Embedded C firmware demo suite
-│   ├── small.c                   # Temperature sensor firmware (86 lines, 10 violations)
-│   ├── medium.c                  # Controller firmware (98 lines, 15 violations)
-│   ├── large.c                   # BMS firmware (98 lines, 15 violations)
-│   └── README.md                 # Demo suite guide (59 lines)
+│   ├── small.c                   # Temperature sensor firmware (72 lines, 10 violations)
+│   ├── medium.c                  # Controller firmware (467 lines, 39 violations)
+│   ├── large.c                   # BMS firmware (1139 lines, 32 violations)
+│   └── README.md                 # Demo suite guide
 ├── scripts/                      # Automated test & benchmark suite
 │   ├── run_full_validation_suite.py
 │   ├── verify_demo_suite.py
@@ -142,9 +142,9 @@ MISRA_Project/
 
 ## 7. Demo Suite Summary (`perf_test`)
 
-- `small.c` (86 lines): Temperature sensor firmware. Triggers all 10 rules. Reaches **100.0% compliance** (0 remaining) after Accept All.
-- `medium.c` (98 lines): Multi-module controller firmware. Triggers 15 violations. Reaches **70.0% compliance** (3 Rule 10.3 manual cases remaining).
-- `large.c` (98 lines): Battery Management System (BMS) firmware. Triggers 15 violations. Reaches **70.0% compliance** (3 Rule 10.3 manual cases remaining).
+- `small.c` (72 lines): Temperature sensor firmware. Triggers all 10 rules. Reaches **100.0% compliance** (0 remaining) after Accept All.
+- `medium.c` (467 lines): Multi-module controller firmware. Triggers 39 violations across all 10 rules. Reaches **60.0% compliance** (10 manual cases remaining across 4 rules).
+- `large.c` (1139 lines): Battery Management System (BMS) firmware. Triggers 32 violations across all 10 rules. Reaches **70.0% compliance** (6 manual cases remaining across 3 rules).
 
 ---
 

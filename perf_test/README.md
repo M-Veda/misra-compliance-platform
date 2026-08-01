@@ -6,9 +6,9 @@ This directory contains three realistic embedded firmware C programs designed fo
 
 | File Name | Embedded Domain | Line Count | Baseline Violations | Rules Detected | Re-Analysis Score |
 | :--- | :--- | :---: | :---: | :---: | :---: |
-| **`small.c`** | Temperature Sensor Firmware | **58 lines** | **10** | All 10 Rules | **100.0%** (0 remaining) |
-| **`medium.c`** | Multi-Module Embedded Controller | **68 lines** | **15** | All 10 Rules | **70.0%** (3 manual remaining) |
-| **`large.c`** | Industrial Battery Management System (BMS) | **68 lines** | **15** | All 10 Rules | **70.0%** (3 manual remaining) |
+| **`small.c`** | Temperature Sensor Firmware | **72 lines** | **10** | All 10 Rules | **100.0%** (0 remaining) |
+| **`medium.c`** | Multi-Module Embedded Controller | **467 lines** | **39** | All 10 Rules | **60.0%** (10 manual remaining) |
+| **`large.c`** | Industrial Battery Management System (BMS) | **1139 lines** | **32** | All 10 Rules | **70.0%** (6 manual remaining) |
 
 ---
 
@@ -38,14 +38,14 @@ Every single one of the 10 supported MISRA‑C:2012 rules is triggered and demon
 Upon executing **Accept All** (bulk auto-patching) and re-analyzing:
 
 - **`small.c`**: Reaches **100.0% compliance** with **0 remaining violations**.
-- **`medium.c` & `large.c`**: Re-analysis reports **3 remaining Rule 10.3 violations** (70.0% compliance).
+- **`medium.c`**: Re-analysis reports **10 remaining violations** across 4 rules (60.0% compliance).
+- **`large.c`**: Re-analysis reports **6 remaining violations** across 3 rules (70.0% compliance).
 
-### Root Cause Analysis of Remaining Rule 10.3 Violations:
-1. **Rule ID:** `Rule 10.3` (Essential Type Conversion).
-2. **Why They Remain:** When passing integer literals (e.g. `0` or numeric constants) to unsigned integer parameters or expressions without explicit `U` suffixes, C implicitly promotes the signed integer literal type to unsigned types.
-3. **Classification:** **Intentionally Manual Refactoring Requirement**. Partial Auto-Patch: Safe cases are fixed automatically. Semantic conversions that could alter program behaviour are intentionally left for manual developer review.
+### Root Cause Analysis of Remaining Violations
 
----
+Rule 10.3 (Essential Type Conversion), Rule 12.1 (complex `||` expressions), Rule 7.1 (octal in nested context), and Rule 8.7 (global-scope restructuring) all have cases where auto-patching would alter program semantics. These are **intentionally left for manual developer review**, demonstrating the system's conservative and safe patching policy.
+
+> **Scoring:** The compliance score deducts 10 points per unique rule still violated after patching. Files with more diverse remaining rule categories score lower, which is expected for larger, more complex embedded codebases.
 
 ## Presentation & Viva Guide
 

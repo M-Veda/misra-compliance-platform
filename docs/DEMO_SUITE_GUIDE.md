@@ -11,17 +11,17 @@ The `perf_test/` folder contains a professional, realistic embedded C firmware d
 
 ```
 perf_test/
-├── README.md   (59 lines)
-├── small.c     (86 lines)
-├── medium.c    (98 lines)
-└── large.c     (98 lines)
+├── README.md   (60 lines)
+├── small.c     (72 lines)
+├── medium.c    (467 lines)
+└── large.c     (1139 lines)
 ```
 
 | File | Domain | Lines | Baseline Violations | Detected Rules | Re-Analysis Score |
 | :--- | :--- | :---: | :---: | :---: | :---: |
-| **`small.c`** | Temperature Sensor Firmware | **86 lines** | **10** | All 10 Rules | **100.0%** (0 remaining) |
-| **`medium.c`** | Multi-Module Controller Firmware | **98 lines** | **15** | All 10 Rules | **70.0%** (3 manual remaining) |
-| **`large.c`** | Battery Management System (BMS) | **98 lines** | **15** | All 10 Rules | **70.0%** (3 manual remaining) |
+| **`small.c`** | Temperature Sensor Firmware | **72 lines** | **10** | All 10 Rules | **100.0%** (0 remaining) |
+| **`medium.c`** | Multi-Module Controller Firmware | **467 lines** | **39** | All 10 Rules | **60.0%** (10 manual remaining) |
+| **`large.c`** | Battery Management System (BMS) | **1139 lines** | **32** | All 10 Rules | **70.0%** (6 manual remaining) |
 
 ---
 

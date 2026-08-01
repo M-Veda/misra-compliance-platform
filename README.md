@@ -112,13 +112,13 @@ Open `http://localhost:5173/` in your browser.
 The `perf_test/` directory contains a realistic embedded C firmware demonstration suite:
 
 1. **Step 1: Classroom / 2-Minute Demo (`small.c`)**
-   - Upload `perf_test/small.c` (86 lines).
+   - Upload `perf_test/small.c` (72 lines).
    - Observe the 10 detected violations mapping 1-to-1 to all 10 supported MISRA rules.
-   - Click **Bulk Actions $\rightarrow$ Accept All Violations** $\rightarrow$ Click **Re-analyze Code**.
+   - Click **Bulk Actions → Accept All Violations** → Click **Re-analyze Code**.
    - Observe **100.0% compliance score** (0 remaining violations).
 
 2. **Step 2: Realistic Firmware & Pre-filled Manual Fix (`medium.c` / `large.c`)**
-   - Upload `perf_test/medium.c` (98 lines) or `perf_test/large.c` (98 lines).
+   - Upload `perf_test/medium.c` (467 lines) or `perf_test/large.c` (1139 lines).
    - Select a violation and click **Manual Fix**.
    - Observe the code editor pre-filled with the analyzer's best safe suggestion.
    - Adjust formatting or parentheses and click **Confirm Manual Fix**.
