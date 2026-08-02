@@ -191,7 +191,6 @@ MISRA_Project/
 ├── scripts/                     # Validation & benchmarking Python scripts
 ├── requirements.txt             # Backend Python dependencies
 ├── README.md                    # Public GitHub Documentation
-└── PROJECT_INTERNAL_EXPLANATION.md # Comprehensive Learning Handbook & Viva Guide
 ```
 
 ---
