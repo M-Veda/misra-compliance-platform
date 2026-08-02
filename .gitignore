@@ -1,4 +1,9 @@
-# Python
+# Private Learning Handbook & Submission Zip
+PROJECT_INTERNAL_EXPLANATION.md
+MISRA_Project_Submission.zip
+docs/archive/
+
+# Python & Caches
 __pycache__/
 *.py[cod]
 *$py.class
@@ -6,11 +11,18 @@ __pycache__/
 env/
 venv/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage/
+.cache/
 
 # Node & Frontend
 node_modules/
 dist/
+build/
 .vite/
+.next/
 
 # Runtime Generated Reports & Artifacts
 backend/generated_reports/*
@@ -19,11 +31,12 @@ backend/generated_json/*
 backend/generated_pdfs/*
 backend/generated_zips/*
 *.log
-*.txt
-evidence_data.json
 temp_*.c
+*.pdf
+*.zip
 
 # IDE & System
 .DS_Store
+Thumbs.db
 .vscode/
 .idea/

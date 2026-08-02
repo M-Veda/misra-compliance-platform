@@ -72,7 +72,8 @@ def benchmark():
         
         # 4. Report Generation Time
         t0 = time.perf_counter()
-        pdf_path = f"backend/generated_reports/bench_{actual_lines}.pdf"
+        import tempfile
+        pdf_path = os.path.join(tempfile.gettempdir(), f"bench_{actual_lines}.pdf")
         ReportGenerator.generate_pdf_report(
             file_name=filename,
             violations=violations,
@@ -82,6 +83,8 @@ def benchmark():
             output_path=pdf_path
         )
         t_report = time.perf_counter() - t0
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
         
         total_time = t_parse + t_rule + t_patch + t_report
         

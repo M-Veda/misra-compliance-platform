@@ -75,7 +75,8 @@ const Analysis = () => {
         file: file.name,
         score: data.compliance_score,
         time: 'Just now',
-        status: data.violations.length === 0 ? 'Perfect' : 'Failed'
+        status: data.violations.length === 0 ? 'Compliant' : 'Violations',
+        violations: data.violations.length,
       });
 
       setActiveTab('violations');
@@ -172,12 +173,15 @@ const Analysis = () => {
         analyzedItems.reduce((acc, f) => acc + f.compliance_score, 0) / analyzedItems.length
       );
 
+      const totalVios = analyzedItems.reduce((acc, f) => acc + f.violations.length, 0);
+
       addRecentScan({
         id: Date.now(),
         file: `${folderInfo.folderName} (${analyzedItems.length} C files)`,
         score: totalScore,
         time: 'Just now',
-        status: analyzedItems.every(f => f.violations.length === 0) ? 'Perfect' : 'Failed'
+        status: totalVios === 0 ? 'Compliant' : 'Violations',
+        violations: totalVios,
       });
 
       setActiveTab('violations');

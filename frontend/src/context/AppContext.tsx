@@ -6,18 +6,12 @@ import type {
   FileAnalysisItem,
   AnalysisMetrics,
   DecisionType,
+  ScanHistory,
 } from '../types';
 
 export type DecisionMap = Record<string, DecisionType>;
 export type ManualCodeMap = Record<string, string>;
-
-interface ScanHistory {
-  id: number;
-  file: string;
-  score: number;
-  time: string;
-  status: string;
-}
+export type { ScanHistory };
 
 interface AppContextType {
   // ── Single-file compat ─────────────────────────────────────────────────────
@@ -80,10 +74,25 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 // ── Metrics computation — the ONLY place statistics are calculated ──────────
+//
+// COMPLIANCE SCORE SEMANTICS (authoritative definition):
+//   Score = 100 - (unique MISRA rules still violated in the WORKING CODE × 10)
+//
+//   Accept  ✓ → code changes → score improves (caller updates analysisResult.compliance_score)
+//   Manual  ✓ → code changes → score improves (caller updates analysisResult.compliance_score)
+//   Reject  ✗ → code UNCHANGED → score must NOT change
+//   Skip    ✗ → code UNCHANGED → score must NOT change
+//   Re-analyze → backend provides authoritative score (always overwrites)
+//
+// The authoritative score is ALWAYS sourced from analysisResult.compliance_score,
+// which is only written when the working code actually changes.
+// This function never independently recalculates the compliance score.
+//
 function computeMetrics(
   allViolations: RuleViolation[],
   decisions: DecisionMap,
   currentViolations: RuleViolation[],
+  authoritativeScore: number,   // from analysisResult.compliance_score — ONLY source of truth
 ): AnalysisMetrics {
   const total_detected = allViolations.length > 0 ? allViolations.length : currentViolations.length;
   const rejected  = Object.values(decisions).filter(d => d === 'Reject').length;
@@ -94,12 +103,9 @@ function computeMetrics(
   // Strict invariant: Accepted + Rejected + Skipped + Manual + Remaining == total_detected
   const accepted  = Math.max(0, total_detected - (rejected + skipped + manual + remaining));
 
-  const violated_rules = new Set(currentViolations.map(v => v.rule_number));
-  const compliance_score = total_detected === 0
-    ? 100.0
-    : currentViolations.length === 0
-      ? 100.0
-      : Math.max(0, 100.0 - violated_rules.size * 10.0);
+  // compliance_score is authoritative from the last backend code scan.
+  // It is NEVER recomputed from the current violations list here.
+  const compliance_score = authoritativeScore;
 
   return { total_detected, accepted, rejected, skipped, manual, remaining, compliance_score };
 }
@@ -289,12 +295,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const idx = fileIdx ?? activeFileIndex;
       const file = fileList[idx];
       if (!file) return { total_detected: 0, accepted: 0, rejected: 0, skipped: 0, manual: 0, remaining: 0, compliance_score: 100 };
-      return computeMetrics(file.all_violations, file.decisions, file.violations);
+      return computeMetrics(file.all_violations, file.decisions, file.violations, file.compliance_score);
     }
     return computeMetrics(
       singleAllViolations,
       singleDecisions,
       singleAnalysisResult?.violations ?? [],
+      // Use 100.0 as default when no analysis has been run yet
+      singleAnalysisResult?.compliance_score ?? 100.0,
     );
   }, [isFolderMode, fileList, activeFileIndex, singleAllViolations, singleDecisions, singleAnalysisResult]);
 

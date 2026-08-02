@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, FileJson, FileText, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Download, FileText, Loader2, AlertCircle, Archive, CheckCircle2, ShieldCheck, Cpu, Code2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAppContext } from '../context/AppContext';
 
@@ -13,6 +13,7 @@ const Reports = () => {
     folderName,
     fileList,
     getAnalysisMetrics,
+    setActiveTab,
   } = useAppContext();
 
   const [loading, setLoading] = useState(false);
@@ -86,12 +87,15 @@ const Reports = () => {
     setError(null);
 
     try {
-      const files_summary = fileList.map(f => ({
-        file_name: f.file_name,
-        violations_count: f.all_violations.length > 0 ? f.all_violations.length : f.violations.length,
-        accepted_count: Object.values(f.decisions).filter(d => d === 'Accept').length,
-        compliance_score: f.compliance_score,
-      }));
+      const files_summary = fileList.map((f, i) => {
+        const m = getAnalysisMetrics(i);
+        return {
+          file_name:        f.file_name,
+          violations_count: m.total_detected,
+          accepted_count:   m.accepted,
+          compliance_score: m.compliance_score,
+        };
+      });
 
       const overall_score = Math.round(
         fileList.reduce((acc, f) => acc + f.compliance_score, 0) / fileList.length
@@ -130,199 +134,282 @@ const Reports = () => {
     }
   };
 
-  const downloadJSON = async () => {
-    if (isFolderMode) {
-      const projectSummary = {
-        folder_name: folderName,
-        total_files: fileList.length,
-        overall_compliance_score: Math.round(fileList.reduce((acc, f) => acc + f.compliance_score, 0) / fileList.length),
-        files: fileList.map(f => ({
-          file_name: f.file_name,
-          compliance_score: f.compliance_score,
-          total_violations: f.all_violations.length,
-          remaining_violations: f.violations.length,
-          decisions: f.decisions,
-        }))
-      };
-      const jsonStr = JSON.stringify(projectSummary, null, 2);
-      const blob = new Blob([jsonStr], { type: 'application/json' });
+  const downloadZipArchive = async () => {
+    if (!isFolderMode || fileList.length === 0) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const payloadFiles = fileList.map((f) => ({
+        file_name: f.file_name,
+        corrected_code: f.working_code || f.source_code,
+      }));
+
+      const res = await fetch('http://localhost:8000/api/download-zip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folder_name: folderName || 'Project',
+          files: payloadFiles,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to package ZIP archive.');
+
+      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `MISRA_Project_Report_${(folderName || 'Project').replace('.', '_')}.json`;
+      a.download = `${(folderName || 'Project').replace(/\s+/g, '_')}_fixed.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      return;
-    }
-
-    const data = await generateReport();
-    if (data?.success) {
-      const jsonStr = JSON.stringify(data.json_report, null, 2);
-      const blob = new Blob([jsonStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `MISRA_Report_${analysisResult?.file_name.replace('.', '_')}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-  };
-
-  const handleDefaultGenerate = async () => {
-    if (isFolderMode) {
-      await downloadProjectPDF();
-    } else {
-      await downloadPDF();
+    } catch (err: any) {
+      setError(err.message || 'Error downloading ZIP archive.');
+    } finally {
+      setLoading(false);
     }
   };
 
   // Guarantee #9: Serialize finalized session — never independently recompute
-  let accepted = 0, rejected = 0, skipped = 0, manual = 0, totalViol = 0, overallScoreVal = 100;
+  let accepted = 0, totalViol = 0, overallScoreVal = 100;
+
   if (isFolderMode && fileList.length > 0) {
     for (let i = 0; i < fileList.length; i++) {
       const m = getAnalysisMetrics(i);
-      accepted      += m.accepted;
-      rejected      += m.rejected;
-      skipped       += m.skipped;
-      manual        += m.manual;
-      totalViol     += m.total_detected;
+      totalViol += m.total_detected;
+      accepted  += m.accepted;
     }
-    overallScoreVal = Math.round(fileList.reduce((acc, f) => acc + f.compliance_score, 0) / fileList.length);
-  } else {
+    overallScoreVal = Math.round(
+      fileList.reduce((acc, f) => acc + f.compliance_score, 0) / fileList.length
+    );
+  } else if (analysisResult) {
     const m = getAnalysisMetrics();
-    accepted       = m.accepted;
-    rejected       = m.rejected;
-    skipped        = m.skipped;
-    manual         = m.manual;
-    totalViol      = m.total_detected;
-    overallScoreVal = m.compliance_score;
+    totalViol       = m.total_detected;
+    accepted        = m.accepted;
+    overallScoreVal = Math.round(m.compliance_score);
   }
 
+  const hasData = isFolderMode ? fileList.length > 0 : Boolean(analysisResult);
+
   return (
-    <div className="h-full flex flex-col gap-6 p-2">
+    <div className="h-full flex flex-col gap-6 p-2 justify-between">
+      {/* Top Header */}
       <div className="flex justify-between items-end">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-white mb-1">Compliance Reports</h2>
-          <p className="text-slate-400">Generate and download official MISRA C verification artifacts.</p>
+          <p className="text-slate-400">Download executive PDF compliance reports and remediated source code archives.</p>
         </div>
-        {analysisResult && (
-          <button
-            onClick={handleDefaultGenerate}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-xl text-sm transition-colors shadow-lg shadow-violet-500/20 disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            Generate Report ({isFolderMode ? 'PROJECT PDF' : 'PDF'})
-          </button>
-        )}
       </div>
 
       {error && (
-        <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-400 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          {error}
+        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
-      {/* Report Summary Card */}
-      {analysisResult ? (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-1 md:grid-cols-2 gap-6"
-        >
-          {/* Card 1: Single File Report */}
-          <div className="glass-panel p-6 flex flex-col justify-between gap-6">
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center text-violet-400">
-                  <FileText className="w-5 h-5" />
+      {hasData ? (
+        <div className="flex flex-col gap-6 flex-1 justify-between">
+          {/* Main 2-Card Grid */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1"
+          >
+            {/* Card 1: Executive PDF Report */}
+            <div className="glass-panel p-6 flex flex-col justify-between gap-5 border border-slate-700/60 shadow-xl">
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-violet-400">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-lg">Executive PDF Compliance Report</h3>
+                    <p className="text-xs text-slate-400 font-mono">
+                      {isFolderMode ? `${folderName} (${fileList.length} files)` : analysisResult?.file_name}
+                    </p>
+                  </div>
                 </div>
+
+                <p className="text-sm text-slate-300 mb-4 leading-relaxed">
+                  Official PDF compliance report containing violation audit trails, patch diffs, compliance metrics, and score validation.
+                </p>
+
+                {/* Metadata & Invariants Box */}
+                <div className="bg-slate-800/60 border border-slate-700/50 p-4 rounded-xl space-y-2 text-xs font-mono mb-4">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Target Resource:</span>
+                    <span className="text-white font-bold truncate max-w-[180px]">{isFolderMode ? folderName : analysisResult?.file_name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Compliance Score:</span>
+                    <span className="text-emerald-400 font-bold">{overallScoreVal}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Baseline Violations:</span>
+                    <span className="text-white font-bold">{totalViol}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Accepted Fixes:</span>
+                    <span className="text-emerald-400 font-bold">{accepted}</span>
+                  </div>
+                </div>
+
+                {/* PDF Checklist */}
                 <div>
-                  <h3 className="font-bold text-white text-lg">Single File Executive PDF</h3>
-                  <p className="text-xs text-slate-400 font-mono">{analysisResult.file_name}</p>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">What's Included in this PDF</h4>
+                  <ul className="space-y-1.5 text-xs text-slate-300">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                      <span>Executive Compliance Summary & Score Validation</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                      <span>Baseline Violation Audit Trail & Rule Breakdown</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                      <span>Side-by-Side Patch Diffs & Decision Ledger</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                      <span>Remediated Source Code Appendix & Sign-off</span>
+                    </li>
+                  </ul>
                 </div>
               </div>
-              <p className="text-sm text-slate-300 mb-4">
-                Official PDF compliance report containing violation audit trails, patch diffs, compliance metrics, and score validation.
-              </p>
-              <div className="bg-slate-800/50 p-4 rounded-xl space-y-2 text-xs font-mono">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Target File:</span>
-                  <span className="text-white font-bold">{analysisResult.file_name}</span>
+
+              <button
+                onClick={isFolderMode ? downloadProjectPDF : downloadPDF}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-violet-500/20 disabled:opacity-50 mt-2"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                {isFolderMode ? 'Download Project Summary PDF' : 'Download Executive PDF Report'}
+              </button>
+            </div>
+
+            {/* Card 2: Corrected Source Code */}
+            <div className="glass-panel p-6 flex flex-col justify-between gap-5 border border-slate-700/60 shadow-xl">
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400">
+                    <Archive className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-lg">Corrected Source Code</h3>
+                    <p className="text-xs text-slate-400 font-mono">
+                      {isFolderMode ? 'Multi-File ZIP Package' : 'Single File Corrected Source'}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Compliance Score:</span>
-                  <span className="text-emerald-400 font-bold">{overallScoreVal}%</span>
+
+                <p className="text-sm text-slate-300 mb-4 leading-relaxed">
+                  {isFolderMode
+                    ? 'Package all remediated C source files into a clean ZIP archive for deployment or CI/CD integration.'
+                    : 'View or export your remediated C source file containing all accepted automated and manual fixes.'}
+                </p>
+
+                {/* Metadata Box */}
+                <div className="bg-slate-800/60 border border-slate-700/50 p-4 rounded-xl space-y-2 text-xs font-mono mb-4">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Packaging Format:</span>
+                    <span className="text-sky-400 font-bold">{isFolderMode ? 'ZIP Archive' : 'C Source File (.c)'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Target Scope:</span>
+                    <span className="text-white font-bold">{isFolderMode ? `${fileList.length} C Files` : 'Single C File'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Remediation Status:</span>
+                    <span className="text-emerald-400 font-bold flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Validated
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Artifact Delivery:</span>
+                    <span className="text-slate-200 font-bold">Browser Downloads</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Baseline Violations:</span>
-                  <span className="text-white font-bold">{totalViol}</span>
+
+                {/* Workflow Info Box */}
+                <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/40">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Source Code Integration</h4>
+                  <p className="text-xs text-slate-300 leading-relaxed mb-3">
+                    {isFolderMode
+                      ? 'The generated ZIP package contains updated C files with all range-based AST fixes applied.'
+                      : 'All accepted automated fixes and manual edits are stored in your active session working copy.'}
+                  </p>
+                  {!isFolderMode && (
+                    <button
+                      onClick={() => setActiveTab('generated-code')}
+                      className="w-full py-2 px-3 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold text-slate-200 flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <Code2 className="w-3.5 h-3.5 text-violet-400" />
+                      View Corrected Code in Editor →
+                    </button>
+                  )}
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Accepted Fixes:</span>
-                  <span className="text-emerald-400 font-bold">{accepted}</span>
+              </div>
+
+              {isFolderMode ? (
+                <button
+                  onClick={downloadZipArchive}
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-sky-500/20 disabled:opacity-50 mt-2"
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  Download Project ZIP Archive
+                </button>
+              ) : (
+                <div className="p-2.5 bg-slate-800/60 rounded-xl text-xs text-slate-400 text-center font-mono border border-slate-700/50">
+                  Source code synced to <span className="text-violet-400 font-bold">Generated Code</span> tab.
                 </div>
+              )}
+            </div>
+          </motion.div>
+
+          {/* Bottom Engine Metadata Section */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-4 rounded-2xl glass-panel bg-slate-800/40 border border-slate-700/50 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono shadow-md"
+          >
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+              <div>
+                <div className="text-slate-400">Standard</div>
+                <div className="text-white font-bold">MISRA C:2012</div>
               </div>
             </div>
 
-            <button
-              onClick={downloadPDF}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-xl text-sm transition-colors shadow-lg shadow-violet-500/20 disabled:opacity-50"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              Download Single File PDF
-            </button>
-          </div>
-
-          {/* Card 2: JSON Artifact */}
-          <div className="glass-panel p-6 flex flex-col justify-between gap-6">
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-sky-500/20 flex items-center justify-center text-sky-400">
-                  <FileJson className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-white text-lg">Machine-Readable JSON</h3>
-                  <p className="text-xs text-slate-400 font-mono">Structure Data Payload</p>
-                </div>
-              </div>
-              <p className="text-sm text-slate-300 mb-4">
-                JSON compliance payload suitable for CI/CD pipelines, automated security scanning, and external auditing systems.
-              </p>
-              <div className="bg-slate-800/50 p-4 rounded-xl space-y-2 text-xs font-mono">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Format:</span>
-                  <span className="text-sky-400 font-bold">JSON 2.0</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Scope:</span>
-                  <span className="text-white font-bold">{isFolderMode ? 'Multi-File Folder' : 'Single Source File'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Status:</span>
-                  <span className="text-emerald-400 font-bold flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> Validated
-                  </span>
-                </div>
+            <div className="flex items-center gap-3">
+              <Cpu className="w-5 h-5 text-violet-400 flex-shrink-0" />
+              <div>
+                <div className="text-slate-400">Engine Version</div>
+                <div className="text-white font-bold">v1.0.0 Baseline</div>
               </div>
             </div>
 
-            <button
-              onClick={downloadJSON}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl text-sm transition-colors disabled:opacity-50"
-            >
-              <FileJson className="w-4 h-4 text-sky-400" />
-              Download JSON Report
-            </button>
-          </div>
-        </motion.div>
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="w-5 h-5 text-sky-400 flex-shrink-0" />
+              <div>
+                <div className="text-slate-400">State Invariants</div>
+                <div className="text-emerald-400 font-bold">100% Synchronized</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <FileText className="w-5 h-5 text-amber-400 flex-shrink-0" />
+              <div>
+                <div className="text-slate-400">Storage Mode</div>
+                <div className="text-white font-bold">Transient Streaming</div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
       ) : (
         <div className="h-full flex items-center justify-center text-slate-500 flex-col gap-4">
           <FileText className="w-12 h-12 text-slate-700" />

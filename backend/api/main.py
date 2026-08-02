@@ -23,6 +23,11 @@ from backend.services.patch import PatchService
 from backend.services import patch_engine
 from backend.report.generator import ReportGenerator
 
+import logging
+
+logger = logging.getLogger("misra_analyzer")
+logging.basicConfig(level=logging.INFO)
+
 app = FastAPI(
     title="AI-Powered MISRA C:2012 Compliance Agent API",
     description="Backend API for static C analysis and human-in-the-loop compliance reviews."
@@ -46,16 +51,12 @@ class ChatRequest(BaseModel):
     source_code: str
     violations: List[RuleViolation]
 
-# Directory structure to save generated reports and artifacts inside project
-BASE_BACKEND_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REPORTS_DIR        = os.path.join(BASE_BACKEND_DIR, "generated_reports")
-GENERATED_CODE_DIR = os.path.join(BASE_BACKEND_DIR, "generated_code")
-GENERATED_JSON_DIR = os.path.join(BASE_BACKEND_DIR, "generated_json")
-GENERATED_PDFS_DIR = os.path.join(BASE_BACKEND_DIR, "generated_pdfs")
-GENERATED_ZIPS_DIR = os.path.join(BASE_BACKEND_DIR, "generated_zips")
+import tempfile
+from starlette.background import BackgroundTask
 
-for d in [REPORTS_DIR, GENERATED_CODE_DIR, GENERATED_JSON_DIR, GENERATED_PDFS_DIR, GENERATED_ZIPS_DIR]:
-    os.makedirs(d, exist_ok=True)
+# System temporary directory for transient artifact generation (zero repository storage)
+TEMP_ARTIFACTS_DIR = os.path.join(tempfile.gettempdir(), "misra_temp_artifacts")
+os.makedirs(TEMP_ARTIFACTS_DIR, exist_ok=True)
 
 @app.get("/api/rules")
 def get_rules():
@@ -87,22 +88,42 @@ async def upload_c_file(file: UploadFile = File(...)):
         
     try:
         content = await file.read()
-        # Try UTF-8 first, then UTF-16 (Windows BOM), then latin-1 fallback
-        if content.startswith(b'\xff\xfe') or content.startswith(b'\xfe\xff'):
+        if len(content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="File payload size exceeds maximum limit of 10MB.")
+        # UTF-8 BOM, UTF-16 (Windows BOM), UTF-8 / latin-1 fallback
+        if content.startswith(b'\xef\xbb\xbf'):
+            source_code = content.decode('utf-8-sig')
+        elif content.startswith(b'\xff\xfe') or content.startswith(b'\xfe\xff'):
             source_code = content.decode('utf-16')
         else:
             try:
-                source_code = content.decode('utf-8')
+                source_code = content.decode('utf-8-sig')
             except UnicodeDecodeError:
                 source_code = content.decode('latin-1')
+        # Strip any residual zero-width non-breaking space / BOM
+        source_code = source_code.lstrip('\ufeff')
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to read file: {str(e)}")
+
+    # Empty file handling
+    if not source_code.strip():
+        return {
+            "success": True,
+            "parse_valid": True,
+            "file_name": file.filename,
+            "source_code": source_code,
+            "violations": [],
+            "compliance_score": 100.0
+        }
 
     # 1. Parse using Parser Service
     ast, err = CParserService.parse_code(source_code, file.filename)
     if err:
         return {
             "success": False,
+            "parse_valid": False,
             "error": err,
             "file_name": file.filename,
             "source_code": source_code,
@@ -119,8 +140,7 @@ async def upload_c_file(file: UploadFile = File(...)):
                 v.patch_preview = patch_engine.generate_patch_preview(source_code, v)
             violations.extend(v_list)
         except Exception as e:
-            # Continue if one rule analyzer encounters an error
-            pass
+            logger.warning("Rule %s analysis error on %s: %s", getattr(rule, 'rule_number', 'unknown'), file.filename, e)
 
     # 3. Calculate Compliance Score
     violated_rules = set(v.rule_number for v in violations)
@@ -128,6 +148,7 @@ async def upload_c_file(file: UploadFile = File(...)):
 
     return {
         "success": True,
+        "parse_valid": True,
         "file_name": file.filename,
         "source_code": source_code,
         "violations": violations,
@@ -248,20 +269,17 @@ def chat_with_agent(request: ChatRequest):
 @app.post("/api/generate-report")
 def generate_report(request: ReportRequest):
     """
-    Generates PDF & JSON compliance reports and saves artifacts inside project directories.
+    Generates PDF & JSON compliance reports in system temporary storage.
+    Zero artifacts are saved to project directories.
     """
-    clean_base = request.file_name.replace('.', '_')
+    safe_file_name = os.path.basename(request.file_name)
+    clean_base = safe_file_name.replace('.', '_')
     pdf_filename = f"MISRA_Report_{clean_base}.pdf"
-    json_filename = f"MISRA_Report_{clean_base}.json"
-    code_filename = f"{clean_base}_fixed.c"
     
-    pdf_path = os.path.join(REPORTS_DIR, pdf_filename)
-    pdf_project_path = os.path.join(GENERATED_PDFS_DIR, pdf_filename)
-    json_project_path = os.path.join(GENERATED_JSON_DIR, json_filename)
-    code_project_path = os.path.join(GENERATED_CODE_DIR, code_filename)
+    pdf_temp_path = os.path.join(TEMP_ARTIFACTS_DIR, pdf_filename)
     
     try:
-        # Generate JSON summary
+        # Generate JSON summary in memory
         json_report = ReportGenerator.generate_json_report(
             file_name=request.file_name,
             original_code=request.original_code,
@@ -271,31 +289,14 @@ def generate_report(request: ReportRequest):
             compliance_score=request.compliance_score
         )
         
-        # Save JSON inside project directory
-        with open(json_project_path, 'w', encoding='utf-8') as f:
-            json.dump(json_report, f, indent=2)
-
-        # Save corrected code inside project directory
-        with open(code_project_path, 'w', encoding='utf-8') as f:
-            f.write(request.corrected_code)
-        
-        # Generate PDF report (save to both generated_reports/ and generated_pdfs/)
+        # Generate PDF report in temporary storage
         ReportGenerator.generate_pdf_report(
             file_name=request.file_name,
             violations=request.violations,
             decisions=request.decisions,
             compliance_score=request.compliance_score,
             corrected_code=request.corrected_code,
-            output_path=pdf_path
-        )
-
-        ReportGenerator.generate_pdf_report(
-            file_name=request.file_name,
-            violations=request.violations,
-            decisions=request.decisions,
-            compliance_score=request.compliance_score,
-            corrected_code=request.corrected_code,
-            output_path=pdf_project_path
+            output_path=pdf_temp_path
         )
         
         return {
@@ -309,14 +310,19 @@ def generate_report(request: ReportRequest):
 @app.get("/api/download-pdf/{filename}")
 def download_pdf(filename: str):
     """
-    Downloads the generated PDF compliance report.
+    Streams generated PDF report from system temporary storage directly to the client.
+    Automatically deletes the temporary PDF file immediately after transmission.
     """
-    file_path = os.path.join(REPORTS_DIR, filename)
-    if not os.path.exists(file_path):
-        file_path = os.path.join(GENERATED_PDFS_DIR, filename)
+    safe_name = os.path.basename(filename)
+    file_path = os.path.join(TEMP_ARTIFACTS_DIR, safe_name)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="PDF report not found.")
-    return FileResponse(file_path, media_type="application/pdf", filename=filename)
+    return FileResponse(
+        file_path,
+        media_type="application/pdf",
+        filename=safe_name,
+        background=BackgroundTask(os.remove, file_path)
+    )
 
 class FixedFilePayload(BaseModel):
     file_name: str
@@ -329,29 +335,26 @@ class DownloadZipRequest(BaseModel):
 @app.post("/api/download-zip")
 def download_zip(request: DownloadZipRequest):
     """
-    Packages all corrected C files into a downloadable ZIP archive inside project directories.
+    Packages corrected C files into a temporary ZIP archive and streams it directly to client.
+    Automatically deletes temporary ZIP file immediately after transmission.
     """
-    import zipfile
-    clean_folder = request.folder_name.replace(" ", "_")
-    zip_filename = f"{clean_folder}_fixed.zip"
-    zip_path = os.path.join(REPORTS_DIR, zip_filename)
-    zip_project_path = os.path.join(GENERATED_ZIPS_DIR, zip_filename)
+    import zipfile, uuid
+    safe_folder = os.path.basename(request.folder_name).replace(" ", "_") or "project"
+    zip_filename = f"{safe_folder}_fixed.zip"
+    temp_zip_path = os.path.join(TEMP_ARTIFACTS_DIR, f"{uuid.uuid4().hex}_{zip_filename}")
     
-    for zpath in [zip_path, zip_project_path]:
-        with zipfile.ZipFile(zpath, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for f in request.files:
-                fname = f.file_name.replace('\\', '/')
-                if fname.endswith('.c'):
-                    fixed_name = fname[:-2] + "_fixed.c"
-                else:
-                    fixed_name = fname + "_fixed.c"
-                zipf.writestr(fixed_name, f.corrected_code)
-                # Also save individual corrected file into generated_code
-                code_path = os.path.join(GENERATED_CODE_DIR, os.path.basename(fixed_name))
-                with open(code_path, 'w', encoding='utf-8') as cf:
-                    cf.write(f.corrected_code)
+    with zipfile.ZipFile(temp_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for f in request.files:
+            base_name = os.path.basename(f.file_name.replace('\\', '/'))
+            fixed_name = base_name[:-2] + "_fixed.c" if base_name.endswith('.c') else base_name + "_fixed.c"
+            zipf.writestr(fixed_name, f.corrected_code)
             
-    return FileResponse(zip_path, media_type="application/zip", filename=zip_filename)
+    return FileResponse(
+        temp_zip_path,
+        media_type="application/zip",
+        filename=zip_filename,
+        background=BackgroundTask(os.remove, temp_zip_path)
+    )
 
 class ProjectReportRequest(BaseModel):
     folder_name: str
@@ -363,12 +366,12 @@ class ProjectReportRequest(BaseModel):
 @app.post("/api/generate-project-report")
 def generate_project_report(request: ProjectReportRequest):
     """
-    Generates an overall project PDF compliance report.
+    Generates overall project PDF report in system temporary storage.
     """
-    clean_folder = request.folder_name.replace('.', '_').replace(' ', '_')
+    safe_folder = os.path.basename(request.folder_name)
+    clean_folder = safe_folder.replace('.', '_').replace(' ', '_') or 'project'
     pdf_filename = f"MISRA_Project_Report_{clean_folder}.pdf"
-    pdf_path = os.path.join(REPORTS_DIR, pdf_filename)
-    pdf_project_path = os.path.join(GENERATED_PDFS_DIR, pdf_filename)
+    pdf_temp_path = os.path.join(TEMP_ARTIFACTS_DIR, pdf_filename)
     try:
         ReportGenerator.generate_project_pdf_report(
             folder_name=request.folder_name,
@@ -376,15 +379,7 @@ def generate_project_report(request: ProjectReportRequest):
             overall_score=request.overall_score,
             total_files=request.total_files,
             total_violations=request.total_violations,
-            output_path=pdf_path
-        )
-        ReportGenerator.generate_project_pdf_report(
-            folder_name=request.folder_name,
-            files_summary=request.files_summary,
-            overall_score=request.overall_score,
-            total_files=request.total_files,
-            total_violations=request.total_violations,
-            output_path=pdf_project_path
+            output_path=pdf_temp_path
         )
         return {
             "success": True,

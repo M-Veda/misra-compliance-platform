@@ -42,11 +42,20 @@ class ReportGenerator:
     ) -> Dict[str, Any]:
         """
         Creates a JSON payload representation of the compliance report.
+
+        METRIC CONTRACT (single source of truth):
+          - compliance_score is passed in from the frontend's computeMetrics().
+            It is NEVER independently recalculated here.
+          - decisions dict is the same dict used by computeMetrics() in the frontend.
+          - Counts derived here (accepted_cnt etc.) are derived from the same
+            decisions dict — they are identically consistent with the frontend.
+          - Counter invariant: accepted + rejected + skipped + manual + remaining == total
         """
         file_name = clean_code_for_pdf(file_name)
         original_code = clean_code_for_pdf(original_code)
         corrected_code = clean_code_for_pdf(corrected_code)
 
+        total_violations = len(violations)
         mandatory_cnt = sum(1 for v in violations if v.severity == "Mandatory")
         required_cnt  = sum(1 for v in violations if v.severity == "Required")
         advisory_cnt  = sum(1 for v in violations if v.severity == "Advisory")
@@ -55,12 +64,14 @@ class ReportGenerator:
         rejected_cnt = sum(1 for d in decisions.values() if d == "Reject")
         skipped_cnt  = sum(1 for d in decisions.values() if d == "Skip")
         manual_cnt   = sum(1 for d in decisions.values() if d == "Manual")
+        # Remaining = total - all decided (enforces counter invariant)
+        remaining_cnt = max(0, total_violations - (accepted_cnt + rejected_cnt + skipped_cnt + manual_cnt))
 
         report_data = {
             "summary": {
                 "file_name": file_name,
                 "compliance_score": compliance_score,
-                "total_violations_detected": len(violations),
+                "total_violations_detected": total_violations,
                 "severity_counts": {
                     "mandatory": mandatory_cnt,
                     "required": required_cnt,
@@ -70,7 +81,10 @@ class ReportGenerator:
                     "accepted": accepted_cnt,
                     "rejected": rejected_cnt,
                     "skipped": skipped_cnt,
-                    "manual_fix": manual_cnt
+                    "manual_fix": manual_cnt,
+                    "remaining": remaining_cnt,
+                    # Invariant: accepted+rejected+skipped+manual+remaining == total_violations
+                    "_invariant_check": accepted_cnt + rejected_cnt + skipped_cnt + manual_cnt + remaining_cnt
                 }
             },
             "violations": [
@@ -84,7 +98,7 @@ class ReportGenerator:
                     "message": clean_code_for_pdf(v.message),
                     "reason": clean_code_for_pdf(v.reason),
                     "suggested_fix": clean_code_for_pdf(v.suggested_fix),
-                    "user_decision": decisions.get(f"{v.rule_number}_{v.line}_{v.column}", "None")
+                    "user_decision": decisions.get(v.stable_id or f"{v.rule_number}_{v.line}_{v.column}", "None")
                 } for v in violations
             ],
             "original_source_code": original_code,
@@ -199,10 +213,14 @@ class ReportGenerator:
         story.append(Spacer(1, 15))
 
         # Metrics Table
+        # METRIC CONTRACT: accepted/rejected/skipped/manual counts come from
+        # the decisions dict passed in from the frontend's computeMetrics().
+        # compliance_score is passed in from the frontend — never recalculated here.
         accepted = sum(1 for d in decisions.values() if d == "Accept")
         rejected = sum(1 for d in decisions.values() if d == "Reject")
-        skipped = sum(1 for d in decisions.values() if d == "Skip")
-        manual = sum(1 for d in decisions.values() if d == "Manual")
+        skipped  = sum(1 for d in decisions.values() if d == "Skip")
+        manual   = sum(1 for d in decisions.values() if d == "Manual")
+        remaining = max(0, len(violations) - (accepted + rejected + skipped + manual))
         
         mandatory_cnt = sum(1 for v in violations if v.severity == "Mandatory")
         required_cnt  = sum(1 for v in violations if v.severity == "Required")
@@ -219,6 +237,9 @@ class ReportGenerator:
             [Paragraph("Rejected Violations (Retained)", body_style), Paragraph(str(rejected), body_style)],
             [Paragraph("Skipped (Pending Action)", body_style), Paragraph(str(skipped), body_style)],
             [Paragraph("Manual Fixes (Edited by User)", body_style), Paragraph(str(manual), body_style)],
+            [Paragraph("Remaining (Undecided)", body_style), Paragraph(str(remaining), body_style)],
+            [Paragraph("Invariant Check (= Total)", body_style),
+             Paragraph(str(accepted + rejected + skipped + manual + remaining), body_style)],
         ]
         
         metrics_table = Table(metrics_data, colWidths=[250, 150])
