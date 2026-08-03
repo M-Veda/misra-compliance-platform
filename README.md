@@ -1,4 +1,4 @@
-# AI-Powered MISRA C:2012 Static Compliance & Automated Code Review Platform
+# AI-Powered MISRA C Static Compliance Framework with Automated Remediation
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python Version](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://www.python.org/)
