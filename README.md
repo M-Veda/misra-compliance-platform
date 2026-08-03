@@ -10,6 +10,45 @@
 
 ---
 
+## 🎥 Live Demo
+
+Watch the complete workflow of the MISRA Compliance Platform—from uploading C source code to reviewing violations, applying fixes, generating corrected code, and exporting compliance reports.
+
+
+https://github.com/user-attachments/assets/d8893051-c270-4ded-a911-3955efc43bac
+
+
+---
+
+## 📸 Project Screenshots
+
+Dashboard
+<img width="1456" height="819" alt="image" src="https://github.com/user-attachments/assets/130e4158-e586-48a8-838c-25aecb7b1e0f" />
+Dashboard displaying compliance metrics, supported MISRA rules, severity distribution, and recent scan history.
+
+Analysis Engine
+<img width="1456" height="819" alt="image" src="https://github.com/user-attachments/assets/03c8d1da-5557-4055-9156-277a9e430dfe" />
+Upload a single C source file or an entire project folder for deterministic MISRA analysis.
+
+Violations Review
+<img width="1456" height="819" alt="image" src="https://github.com/user-attachments/assets/aa56e7f0-db75-41d3-9037-4d325bd610e6" />
+Human-in-the-loop review with side-by-side Monaco diff editor allowing Accept, Reject, Skip, or Manual Fix.
+
+Bulk Actions
+<img width="1456" height="819" alt="image" src="https://github.com/user-attachments/assets/1de98d5d-76e0-4c53-b649-516bd6a2ae0e" />
+Apply review decisions to all violations or filter actions by Required and Advisory MISRA rules.
+
+Generated Code
+<img width="1456" height="819" alt="image" src="https://github.com/user-attachments/assets/aa508115-4162-4d24-99e1-f1a5748a93c4" />
+View, copy, and download the corrected MISRA-compliant source code after remediation.
+
+Compliance Reports
+<img width="1456" height="819" alt="image" src="https://github.com/user-attachments/assets/222760b4-598c-48ae-ad0f-2a371fe634f9" />
+Generate executive PDF compliance reports and export corrected source code artifacts.
+
+---
+
+
 ## Table of Contents
 
 - [Overview](#overview)
