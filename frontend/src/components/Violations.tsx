@@ -1032,7 +1032,7 @@ const Violations = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      {structuredAiData && (
+                      {structuredAiData && structuredAiData.is_available !== false && structuredAiData.confidence && (
                         <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20 text-xs font-mono font-bold">
                           🎯 {(structuredAiData.confidence * 100).toFixed(0)}% Confidence
                         </div>
@@ -1047,91 +1047,106 @@ const Violations = () => {
                     </div>
                   </div>
 
-                {structuredAiData ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                    {/* What AI Found */}
-                    <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 space-y-1">
-                      <div className="font-bold text-violet-300 flex items-center gap-1.5">
-                        🔍 What AI Found
+                  {structuredAiData && (structuredAiData.is_available === false || structuredAiData.success === false) ? (
+                    <div className="p-6 bg-amber-950/40 border border-amber-500/30 rounded-xl space-y-3">
+                      <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
+                        <AlertCircle className="w-5 h-5" />
+                        AI Explanation Unavailable
                       </div>
-                      <p className="text-slate-300 leading-relaxed">{structuredAiData.what_ai_found}</p>
-                    </div>
-
-                    {/* Why It Matters */}
-                    <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 space-y-1">
-                      <div className="font-bold text-amber-400 flex items-center gap-1.5">
-                        ⚠ Why It Matters
-                      </div>
-                      <p className="text-slate-300 leading-relaxed">{structuredAiData.why_it_matters}</p>
-                    </div>
-
-                    {/* MISRA Summary */}
-                    <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 space-y-1">
-                      <div className="font-bold text-sky-400 flex items-center gap-1.5">
-                        📖 MISRA Requirement
-                      </div>
-                      <p className="text-slate-300 leading-relaxed">{structuredAiData.misra_summary}</p>
-                    </div>
-
-                    {/* AI Analysis */}
-                    <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 space-y-1">
-                      <div className="font-bold text-indigo-300 flex items-center gap-1.5">
-                        🧠 AI AST Analysis
-                      </div>
-                      <p className="text-slate-300 leading-relaxed">{structuredAiData.ai_analysis}</p>
-                    </div>
-
-                    {/* Recommended Fix */}
-                    <div className="md:col-span-2 p-3 bg-slate-800/80 rounded-xl border border-emerald-500/30 space-y-2">
-                      <div className="font-bold text-emerald-400 flex items-center gap-1.5">
-                        💡 Recommended Fix & Rationale
-                      </div>
-                      <p className="text-slate-300 leading-relaxed">{structuredAiData.why_fix_works}</p>
-                      {structuredAiData.recommended_fix && (
-                        <div className="p-2 bg-slate-950 rounded border border-emerald-500/20 font-mono text-emerald-300 text-xs">
-                          <code>{structuredAiData.recommended_fix}</code>
-                        </div>
-                      )}
-                      {structuredAiData.alternative_fixes?.length > 0 && (
-                        <div className="pt-1 text-[11px] text-slate-400">
-                          <span className="font-bold text-slate-300">Alternative Fixes:</span>
-                          <ul className="list-disc list-inside mt-1 space-y-0.5 text-slate-300">
-                            {structuredAiData.alternative_fixes.map((alt: string, i: number) => (
-                              <li key={i}>{alt}</li>
-                            ))}
-                          </ul>
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                        AI explanation is currently unavailable because TinyLlama/Ollama is offline. Please start Ollama (`ollama serve`) and try again.
+                      </p>
+                      {structuredAiData.error && (
+                        <div className="p-2.5 bg-slate-900/90 rounded border border-amber-500/20 font-mono text-[11px] text-amber-300">
+                          Status: {structuredAiData.error}
                         </div>
                       )}
                     </div>
-
-                    {/* Impact Analysis Grid */}
-                    <div className="md:col-span-2 p-3 bg-slate-800/60 rounded-xl border border-slate-700/50">
-                      <div className="font-bold text-violet-300 flex items-center gap-1.5 mb-2">
-                        ⚖ Impact Analysis
+                  ) : structuredAiData ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                      {/* What AI Found */}
+                      <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 space-y-1">
+                        <div className="font-bold text-violet-300 flex items-center gap-1.5">
+                          🔍 What AI Found
+                        </div>
+                        <p className="text-slate-300 leading-relaxed">{structuredAiData.what_ai_found}</p>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
-                        <div className="p-2 bg-slate-900/80 rounded border border-slate-700">
-                          <span className="text-slate-400 block font-sans">Runtime:</span>
-                          <span className="font-bold text-emerald-400 font-mono">{structuredAiData.impact_analysis?.runtime || '0% penalty'}</span>
+
+                      {/* Why It Matters */}
+                      <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 space-y-1">
+                        <div className="font-bold text-amber-400 flex items-center gap-1.5">
+                          ⚠ Why It Matters
                         </div>
-                        <div className="p-2 bg-slate-900/80 rounded border border-slate-700">
-                          <span className="text-slate-400 block font-sans">Memory:</span>
-                          <span className="font-bold text-emerald-400 font-mono">{structuredAiData.impact_analysis?.memory || '0 bytes'}</span>
+                        <p className="text-slate-300 leading-relaxed">{structuredAiData.why_it_matters}</p>
+                      </div>
+
+                      {/* MISRA Summary */}
+                      <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 space-y-1">
+                        <div className="font-bold text-sky-400 flex items-center gap-1.5">
+                          📖 MISRA Requirement
                         </div>
-                        <div className="p-2 bg-slate-900/80 rounded border border-slate-700">
-                          <span className="text-slate-400 block font-sans">Compilation:</span>
-                          <span className="font-bold text-sky-400 font-mono">{structuredAiData.impact_analysis?.compilation || 'Clean build'}</span>
+                        <p className="text-slate-300 leading-relaxed">{structuredAiData.misra_summary}</p>
+                      </div>
+
+                      {/* AI Analysis */}
+                      <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 space-y-1">
+                        <div className="font-bold text-indigo-300 flex items-center gap-1.5">
+                          🧠 AI AST Analysis
                         </div>
-                        <div className="p-2 bg-slate-900/80 rounded border border-slate-700">
-                          <span className="text-slate-400 block font-sans">Compliance:</span>
-                          <span className="font-bold text-violet-300 font-mono">{structuredAiData.impact_analysis?.compliance || '+10% Gain'}</span>
+                        <p className="text-slate-300 leading-relaxed">{structuredAiData.ai_analysis}</p>
+                      </div>
+
+                      {/* Recommended Fix */}
+                      <div className="md:col-span-2 p-3 bg-slate-800/80 rounded-xl border border-emerald-500/30 space-y-2">
+                        <div className="font-bold text-emerald-400 flex items-center gap-1.5">
+                          💡 Recommended Fix & Rationale
+                        </div>
+                        <p className="text-slate-300 leading-relaxed">{structuredAiData.why_fix_works}</p>
+                        {structuredAiData.recommended_fix && (
+                          <div className="p-2 bg-slate-950 rounded border border-emerald-500/20 font-mono text-emerald-300 text-xs">
+                            <code>{structuredAiData.recommended_fix}</code>
+                          </div>
+                        )}
+                        {structuredAiData.alternative_fixes?.length > 0 && (
+                          <div className="pt-1 text-[11px] text-slate-400">
+                            <span className="font-bold text-slate-300">Alternative Fixes:</span>
+                            <ul className="list-disc list-inside mt-1 space-y-0.5 text-slate-300">
+                              {structuredAiData.alternative_fixes.map((alt: string, i: number) => (
+                                <li key={i}>{alt}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Impact Analysis Grid */}
+                      <div className="md:col-span-2 p-3 bg-slate-800/60 rounded-xl border border-slate-700/50">
+                        <div className="font-bold text-violet-300 flex items-center gap-1.5 mb-2">
+                          ⚖ Impact Analysis
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+                          <div className="p-2 bg-slate-900/80 rounded border border-slate-700">
+                            <span className="text-slate-400 block font-sans">Runtime:</span>
+                            <span className="font-bold text-emerald-400 font-mono">{structuredAiData.impact_analysis?.runtime || '0% penalty'}</span>
+                          </div>
+                          <div className="p-2 bg-slate-900/80 rounded border border-slate-700">
+                            <span className="text-slate-400 block font-sans">Memory:</span>
+                            <span className="font-bold text-emerald-400 font-mono">{structuredAiData.impact_analysis?.memory || '0 bytes'}</span>
+                          </div>
+                          <div className="p-2 bg-slate-900/80 rounded border border-slate-700">
+                            <span className="text-slate-400 block font-sans">Compilation:</span>
+                            <span className="font-bold text-sky-400 font-mono">{structuredAiData.impact_analysis?.compilation || 'Clean build'}</span>
+                          </div>
+                          <div className="p-2 bg-slate-900/80 rounded border border-slate-700">
+                            <span className="text-slate-400 block font-sans">Compliance:</span>
+                            <span className="font-bold text-violet-300 font-mono">{structuredAiData.impact_analysis?.compliance || '+10% Gain'}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-slate-300 whitespace-pre-wrap">{explanation}</p>
-                )}
+                  ) : (
+                    <p className="text-sm text-slate-300 whitespace-pre-wrap">{explanation}</p>
+                  )}
                 </div>
               </div>
             )}

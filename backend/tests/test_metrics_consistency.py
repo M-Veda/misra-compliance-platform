@@ -429,8 +429,8 @@ class TestAPIMetricsConsistency(unittest.TestCase):
         self.assertAlmostEqual(re_score_api, re_score_formula, places=1,
                                msg="Re-upload score must match formula after patching")
 
-    def test_generate_report_metrics_consistent_with_upload(self):
-        """POST /api/generate-report: JSON report metrics match upload metrics."""
+    def test_generate_report_returns_pdf_filename(self):
+        """POST /api/generate-report returns pdf_report_filename and success."""
         if not os.path.exists(SMALL_C_PATH):
             self.skipTest("small.c not found")
         with open(SMALL_C_PATH, "r") as f:
@@ -438,159 +438,22 @@ class TestAPIMetricsConsistency(unittest.TestCase):
         upload_data = self._upload_file(source, "small.c")
         self.assertTrue(upload_data["success"])
         violations = upload_data["violations"]
-        score = upload_data["compliance_score"]
-
-        # Build decisions: accept all
-        decisions = {}
-        for v in violations:
-            sid = v.get("stable_id") or f"{v['rule_number']}_{v['line']}_{v['column']}"
-            decisions[sid] = "Accept"
 
         payload = {
             "file_name": "small.c",
             "original_code": source,
             "corrected_code": source,
             "violations": violations,
-            "decisions": decisions,
-            "compliance_score": 100.0,  # after accepting all
+            "decisions": {},
+            "compliance_score": 100.0,
             "remaining_violations_count": 0,
         }
         r = requests.post(f"{BASE_URL}/api/generate-report", json=payload)
         r.raise_for_status()
         report_data = r.json()
         self.assertTrue(report_data["success"])
-
-        json_report = report_data["json_report"]
-        summary = json_report["summary"]
-
-        # Counter invariant in JSON report
-        d = summary["decisions_applied"]
-        self.assertEqual(
-            d["accepted"] + d["rejected"] + d["skipped"] + d["manual_fix"] + d["remaining"],
-            summary["total_violations_detected"],
-            msg="JSON report counter invariant violated"
-        )
-        # Compliance score in report matches what we passed in
-        self.assertAlmostEqual(summary["compliance_score"], 100.0, places=1)
-        # Invariant check field in JSON
-        self.assertEqual(d["_invariant_check"], summary["total_violations_detected"])
-
-    def test_report_invariant_check_field_equals_total(self):
-        """The _invariant_check field in JSON report always equals total_violations_detected."""
-        upload_data = self._upload_file(MINIMAL_SOURCE, "test.c")
-        violations = upload_data.get("violations", [])
-        score = upload_data.get("compliance_score", 100.0)
-
-        # No decisions made
-        payload = {
-            "file_name": "test.c",
-            "original_code": MINIMAL_SOURCE,
-            "corrected_code": MINIMAL_SOURCE,
-            "violations": violations,
-            "decisions": {},
-            "compliance_score": score,
-            "remaining_violations_count": len(violations),
-        }
-        r = requests.post(f"{BASE_URL}/api/generate-report", json=payload)
-        r.raise_for_status()
-        summary = r.json()["json_report"]["summary"]
-        d = summary["decisions_applied"]
-        self.assertEqual(
-            d["_invariant_check"],
-            summary["total_violations_detected"],
-            "Invariant check field must equal total_violations_detected"
-        )
-
-    def test_reject_decisions_not_in_score(self):
-        """Violations marked Reject don't improve the score in the report."""
-        upload_data = self._upload_file(MINIMAL_SOURCE, "test.c")
-        violations = upload_data.get("violations", [])
-        initial_score = upload_data.get("compliance_score", 100.0)
-        if not violations:
-            self.skipTest("No violations in minimal source")
-
-        # Mark all as Reject — score must stay at initial (code unchanged)
-        decisions = {}
-        for v in violations:
-            sid = v.get("stable_id") or f"{v['rule_number']}_{v['line']}_{v['column']}"
-            decisions[sid] = "Reject"
-
-        payload = {
-            "file_name": "test.c",
-            "original_code": MINIMAL_SOURCE,
-            "corrected_code": MINIMAL_SOURCE,  # code unchanged
-            "violations": violations,
-            "decisions": decisions,
-            "compliance_score": initial_score,  # score unchanged — passed in from session
-            "remaining_violations_count": 0,
-        }
-        r = requests.post(f"{BASE_URL}/api/generate-report", json=payload)
-        r.raise_for_status()
-        summary = r.json()["json_report"]["summary"]
-        self.assertAlmostEqual(
-            summary["compliance_score"], initial_score, places=1,
-            msg="Reject decisions must not improve compliance score in report"
-        )
-
-    def test_skip_decisions_not_in_score(self):
-        """Violations marked Skip don't improve the score in the report."""
-        upload_data = self._upload_file(MINIMAL_SOURCE, "test.c")
-        violations = upload_data.get("violations", [])
-        initial_score = upload_data.get("compliance_score", 100.0)
-        if not violations:
-            self.skipTest("No violations in minimal source")
-
-        decisions = {}
-        for v in violations:
-            sid = v.get("stable_id") or f"{v['rule_number']}_{v['line']}_{v['column']}"
-            decisions[sid] = "Skip"
-
-        payload = {
-            "file_name": "test.c",
-            "original_code": MINIMAL_SOURCE,
-            "corrected_code": MINIMAL_SOURCE,
-            "violations": violations,
-            "decisions": decisions,
-            "compliance_score": initial_score,  # code unchanged — score unchanged
-            "remaining_violations_count": 0,
-        }
-        r = requests.post(f"{BASE_URL}/api/generate-report", json=payload)
-        r.raise_for_status()
-        summary = r.json()["json_report"]["summary"]
-        self.assertAlmostEqual(
-            summary["compliance_score"], initial_score, places=1,
-            msg="Skip decisions must not improve compliance score in report"
-        )
-
-    def test_metrics_identical_upload_vs_report(self):
-        """Metrics from /api/upload match metrics embedded in /api/generate-report response."""
-        if not os.path.exists(SMALL_C_PATH):
-            self.skipTest("small.c not found")
-        with open(SMALL_C_PATH, "r") as f:
-            source = f.read()
-        upload_data = self._upload_file(source, "small.c")
-        self.assertTrue(upload_data["success"])
-        violations = upload_data["violations"]
-        score = upload_data["compliance_score"]
-
-        payload = {
-            "file_name": "small.c",
-            "original_code": source,
-            "corrected_code": source,
-            "violations": violations,
-            "decisions": {},
-            "compliance_score": score,
-            "remaining_violations_count": len(violations),
-        }
-        r = requests.post(f"{BASE_URL}/api/generate-report", json=payload)
-        r.raise_for_status()
-        summary = r.json()["json_report"]["summary"]
-
-        # Score in report must equal score from upload (no decisions made)
-        self.assertAlmostEqual(summary["compliance_score"], score, places=1,
-                               msg="Report score must match upload score when no decisions made")
-        self.assertEqual(summary["total_violations_detected"], len(violations),
-                         msg="Report total must match upload violations count")
+        self.assertIn("pdf_report_filename", report_data)
+        self.assertNotIn("json_report", report_data)
 
     def test_pdf_endpoint_reachable_after_report_generation(self):
         """After /api/generate-report, the PDF file is downloadable via /api/download-pdf/."""
@@ -608,7 +471,9 @@ class TestAPIMetricsConsistency(unittest.TestCase):
         }
         r = requests.post(f"{BASE_URL}/api/generate-report", json=payload)
         r.raise_for_status()
-        pdf_filename = r.json()["pdf_report_filename"]
+        report_data = r.json()
+        self.assertNotIn("json_report", report_data)
+        pdf_filename = report_data["pdf_report_filename"]
         pdf_r = requests.get(f"{BASE_URL}/api/download-pdf/{pdf_filename}")
         self.assertEqual(pdf_r.status_code, 200)
         self.assertEqual(pdf_r.headers.get("content-type", ""), "application/pdf")

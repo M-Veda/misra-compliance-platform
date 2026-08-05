@@ -300,7 +300,7 @@ class TestRegression(unittest.TestCase):
         self.assertEqual(man, "/* manual fix */ int counter = 0;")
 
     def test_report_generation(self):
-        """Verify pdf & json report generation with patched code."""
+        """Verify PDF report generation with patched code."""
         out_pdf = "temp_test_report.pdf"
         try:
             v = RuleViolation(
@@ -309,13 +309,6 @@ class TestRegression(unittest.TestCase):
                 code_snippet="int counter = 0;", reason="r", suggested_fix="static int counter = 0;", confidence=1.0
             )
             decisions = {"8.7_1_1": "Accept"}
-            json_report = ReportGenerator.generate_json_report(
-                file_name="main.c", original_code="int counter = 0;\n",
-                corrected_code="static int counter = 0;\n",
-                violations=[v], decisions=decisions, compliance_score=100.0
-            )
-            self.assertEqual(json_report["summary"]["compliance_score"], 100.0)
-
             ReportGenerator.generate_pdf_report(
                 file_name="main.c", violations=[v], decisions=decisions,
                 compliance_score=100.0, corrected_code="static int counter = 0;\n",

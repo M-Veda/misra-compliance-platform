@@ -1,4 +1,3 @@
-import json
 import os
 from typing import List, Dict, Any
 from reportlab.lib.pagesizes import letter
@@ -31,81 +30,6 @@ def clean_code_for_pdf(text: str) -> str:
     return "".join(cleaned)
 
 class ReportGenerator:
-    @staticmethod
-    def generate_json_report(
-        file_name: str,
-        original_code: str,
-        corrected_code: str,
-        violations: List[RuleViolation],
-        decisions: Dict[str, str],
-        compliance_score: float
-    ) -> Dict[str, Any]:
-        """
-        Creates a JSON payload representation of the compliance report.
-
-        METRIC CONTRACT (single source of truth):
-          - compliance_score is passed in from the frontend's computeMetrics().
-            It is NEVER independently recalculated here.
-          - decisions dict is the same dict used by computeMetrics() in the frontend.
-          - Counts derived here (accepted_cnt etc.) are derived from the same
-            decisions dict — they are identically consistent with the frontend.
-          - Counter invariant: accepted + rejected + skipped + manual + remaining == total
-        """
-        file_name = clean_code_for_pdf(file_name)
-        original_code = clean_code_for_pdf(original_code)
-        corrected_code = clean_code_for_pdf(corrected_code)
-
-        total_violations = len(violations)
-        mandatory_cnt = sum(1 for v in violations if v.severity == "Mandatory")
-        required_cnt  = sum(1 for v in violations if v.severity == "Required")
-        advisory_cnt  = sum(1 for v in violations if v.severity == "Advisory")
-
-        accepted_cnt = sum(1 for d in decisions.values() if d == "Accept")
-        rejected_cnt = sum(1 for d in decisions.values() if d == "Reject")
-        skipped_cnt  = sum(1 for d in decisions.values() if d == "Skip")
-        manual_cnt   = sum(1 for d in decisions.values() if d == "Manual")
-        # Remaining = total - all decided (enforces counter invariant)
-        remaining_cnt = max(0, total_violations - (accepted_cnt + rejected_cnt + skipped_cnt + manual_cnt))
-
-        report_data = {
-            "summary": {
-                "file_name": file_name,
-                "compliance_score": compliance_score,
-                "total_violations_detected": total_violations,
-                "severity_counts": {
-                    "mandatory": mandatory_cnt,
-                    "required": required_cnt,
-                    "advisory": advisory_cnt
-                },
-                "decisions_applied": {
-                    "accepted": accepted_cnt,
-                    "rejected": rejected_cnt,
-                    "skipped": skipped_cnt,
-                    "manual_fix": manual_cnt,
-                    "remaining": remaining_cnt,
-                    # Invariant: accepted+rejected+skipped+manual+remaining == total_violations
-                    "_invariant_check": accepted_cnt + rejected_cnt + skipped_cnt + manual_cnt + remaining_cnt
-                }
-            },
-            "violations": [
-                {
-                    "rule_number": clean_code_for_pdf(v.rule_number),
-                    "rule_name": clean_code_for_pdf(v.rule_name),
-                    "severity": clean_code_for_pdf(v.severity),
-                    "category": clean_code_for_pdf(v.category),
-                    "line": v.line,
-                    "column": v.column,
-                    "message": clean_code_for_pdf(v.message),
-                    "reason": clean_code_for_pdf(v.reason),
-                    "suggested_fix": clean_code_for_pdf(v.suggested_fix),
-                    "user_decision": decisions.get(v.stable_id or f"{v.rule_number}_{v.line}_{v.column}", "None")
-                } for v in violations
-            ],
-            "original_source_code": original_code,
-            "corrected_source_code": corrected_code if (accepted_cnt > 0 or manual_cnt > 0) else original_code
-        }
-        return report_data
-
     @staticmethod
     def generate_pdf_report(
         file_name: str,
@@ -213,9 +137,6 @@ class ReportGenerator:
         story.append(Spacer(1, 15))
 
         # Metrics Table
-        # METRIC CONTRACT: accepted/rejected/skipped/manual counts come from
-        # the decisions dict passed in from the frontend's computeMetrics().
-        # compliance_score is passed in from the frontend — never recalculated here.
         accepted = sum(1 for d in decisions.values() if d == "Accept")
         rejected = sum(1 for d in decisions.values() if d == "Reject")
         skipped  = sum(1 for d in decisions.values() if d == "Skip")
@@ -401,4 +322,3 @@ class ReportGenerator:
         story.append(summary_table)
 
         doc.build(story)
-

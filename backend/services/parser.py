@@ -1,6 +1,5 @@
 import re
 import os
-import subprocess
 from typing import Tuple, Optional
 from pycparser import c_parser
 from pycparser.c_ast import FileAST

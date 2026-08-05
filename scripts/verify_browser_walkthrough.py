@@ -106,7 +106,7 @@ def main():
         if os.path.exists("temp_patched.c"):
             os.unlink("temp_patched.c")
 
-    print("\n=== Step 8: Generate JSON & PDF Reports ===")
+    print("\n=== Step 8: Generate PDF Report ===")
     payload = {
         "file_name": "small.c",
         "original_code": src,
@@ -119,10 +119,8 @@ def main():
     r = requests.post(f"{BASE_URL}/api/generate-report", json=payload)
     r.raise_for_status()
     rep = r.json()
-    summary = rep["json_report"]["summary"]
-    d = summary["decisions_applied"]
-    print(f"Report JSON Summary: Total={summary['total_violations_detected']} | Acc={d['accepted']} | Rej={d['rejected']} | Skp={d['skipped']} | Man={d['manual_fix']} | Rem={d['remaining']} | Score={summary['compliance_score']:.1f}%")
-    print(f"PDF Report Generated: {rep['pdf_report_filename']}")
+    assert "json_report" not in rep, "json_report must not be returned"
+    print(f"PDF Report Generated Successfully: {rep['pdf_report_filename']}")
 
     print("\n=== Step 9: Generate Project Multi-File Report ===")
     proj_payload = {

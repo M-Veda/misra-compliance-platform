@@ -269,7 +269,7 @@ def chat_with_agent(request: ChatRequest):
 @app.post("/api/generate-report")
 def generate_report(request: ReportRequest):
     """
-    Generates PDF & JSON compliance reports in system temporary storage.
+    Generates PDF compliance report in system temporary storage.
     Zero artifacts are saved to project directories.
     """
     safe_file_name = os.path.basename(request.file_name)
@@ -279,16 +279,6 @@ def generate_report(request: ReportRequest):
     pdf_temp_path = os.path.join(TEMP_ARTIFACTS_DIR, pdf_filename)
     
     try:
-        # Generate JSON summary in memory
-        json_report = ReportGenerator.generate_json_report(
-            file_name=request.file_name,
-            original_code=request.original_code,
-            corrected_code=request.corrected_code,
-            violations=request.violations,
-            decisions=request.decisions,
-            compliance_score=request.compliance_score
-        )
-        
         # Generate PDF report in temporary storage
         ReportGenerator.generate_pdf_report(
             file_name=request.file_name,
@@ -301,11 +291,10 @@ def generate_report(request: ReportRequest):
         
         return {
             "success": True,
-            "json_report": json_report,
             "pdf_report_filename": pdf_filename
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate reports: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate PDF report: {str(e)}")
 
 @app.get("/api/download-pdf/{filename}")
 def download_pdf(filename: str):
