@@ -368,20 +368,23 @@ MISRA_Project/
 
 ---
 
-## 8. MCP Architecture
+## 8. MCP Architecture & Centralized Prompt Management Layer
 
 The Model Context Protocol (MCP v2.0.0) architecture separates the application into distinct capability layers:
 
 ```
-React UI ──► FastAPI Backend ──► MCP Client ──► Official MCP Server ──► AI Provider Layer ──► Ollama ──► TinyLlama
+React UI ──► FastAPI Backend ──► MCP Client ──► Official MCP Server ──► PromptManager ──► AI Provider Layer ──► Ollama ──► TinyLlama
 ```
 
-1. **Official MCP Server (`mcp_server/server.py`)**: Uses `mcp.server.Server` ("misra-compliance-ai-server"). Exposes tools:
+1. **Official MCP Server (`mcp_server/server.py`)**: Uses `mcp.server.Server` ("misra-compliance-ai-server"). Exposes 3 semantic tools:
    - `generate_misra_explanation`: Tool generating structured MISRA violation analysis.
    - `answer_code_question`: Tool answering developer C code questions.
    - `review_patch`: Tool reviewing proposed C code patches.
-2. **AI Provider Layer (`mcp_server/ai_provider.py`)**: `OllamaProvider` executes live inference via Ollama HTTP API (`http://localhost:11434/api/chat`).
-3. **Prompt Engine (`mcp_server/prompts.py`)**: Constructs structured JSON prompt payloads.
+2. **Centralized Prompt Management Layer (`mcp_server/prompts/` & `mcp_server/prompt_manager.py`)**:
+   - `misra_explanation.md`, `code_qa.md`, `patch_review.md`: Standards-based Markdown prompt templates stored separately from Python code.
+   - `PromptManager`: Class dynamically loading markdown templates and formatting variables without hardcoding large prompt strings in business logic.
+   - `mcp_server/prompts.py`: Clean facade wrapper maintaining modular compatibility.
+3. **AI Capabilities Layer (`mcp_server/ai_provider.py`)**: `OllamaProvider` executes live inference via Ollama HTTP API (`http://localhost:11434/api/chat`).
 4. **MCP Client (`backend/mcp/client.py`)**: Issues MCP tool calls (`call_tool`) to the server.
 
 ---
@@ -392,9 +395,10 @@ React UI ──► FastAPI Backend ──► MCP Client ──► Official MCP S
 2. **HTTP Request**: Frontend posts `{ violation, source_code }` to `/api/explain`.
 3. **Backend Delegation**: `LLMService.get_structured_explanation(...)` forwards request to `MCPClient.generate_misra_explanation(...)`.
 4. **MCP Execution**: `MCPClient` executes MCP tool call `generate_misra_explanation` on `OfficialMCPServer`.
-5. **LLM Inference**: `OfficialMCPServer` builds prompt via `mcp_server/prompts.py` and delegates inference to `OllamaProvider` running TinyLlama.
-6. **JSON Repair & Validation**: `extract_json_from_response` extracts and validates JSON fields (`misra_summary`, `why_it_matters`, `ai_analysis`, `why_fix_works`, `alternative_fixes`, `impact_analysis`, `confidence`).
-7. **Offline Safeguard**: If Ollama is offline or unavailable, `is_available: False` is returned. The UI renders an explicit offline alert banner without fabricating fake AI text.
+5. **Prompt Template Loading**: `OfficialMCPServer` retrieves the prompt from `mcp_server/prompts/misra_explanation.md` via `PromptManager` (`mcp_server/prompt_manager.py`).
+6. **LLM Inference**: `OfficialMCPServer` delegates inference to `OllamaProvider` running TinyLlama.
+7. **JSON Repair & Validation**: `extract_json_from_response` extracts and validates JSON fields (`misra_summary`, `why_it_matters`, `ai_analysis`, `why_fix_works`, `alternative_fixes`, `impact_analysis`, `confidence`).
+8. **Offline Safeguard**: If Ollama is offline or unavailable, `is_available: False` is returned. The UI renders an explicit offline alert banner without fabricating fake AI text.
 
 ---
 

@@ -2,12 +2,12 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python Version](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://www.python.org/)
-[![React Version](https://img.shields.io/badge/React-18.0-blue.svg)](https://react.dev/)
+[![React Version](https://img.shields.io/badge/React-18.3-blue.svg)](https://react.dev/)
 [![FastAPI Version](https://img.shields.io/badge/FastAPI-0.100%2B-009688.svg)](https://fastapi.tiangolo.com/)
 [![MCP Standard](https://img.shields.io/badge/Protocol-Model%20Context%20Protocol%20v2.0-purple.svg)](https://modelcontextprotocol.io)
 [![MISRA Standard](https://img.shields.io/badge/Standard-MISRA%20C%3A2012-red.svg)](https://www.misra.org.uk/)
 
-> An enterprise-grade, human-in-the-loop static analysis and automated code remediation workstation for safety-critical C software engineering in automotive (**ISO 26262**), aerospace (**DO-178C**), and medical device (**IEC 62304**) domains. Powered by a deterministic C99 Abstract Syntax Tree (AST) visitor engine, bottom-up range patcher, interactive Monaco side-by-side diff editor, publication-grade ReportLab PDF report generator, and a live runtime **TinyLlama LLM** explanation engine operating over an **Official Model Context Protocol (MCP v2.0.0)** Server architecture.
+> An enterprise-grade, human-in-the-loop static analysis and automated code remediation workstation for safety-critical C software engineering in automotive (**ISO 26262**), aerospace (**DO-178C**), and medical device (**IEC 62304**) domains. Powered by a deterministic C99 Abstract Syntax Tree (AST) visitor engine, bottom-up range patcher, interactive Monaco side-by-side diff editor, publication-grade ReportLab PDF report generator, centralized prompt management layer, and a live runtime **TinyLlama LLM** explanation engine operating over an **Official Model Context Protocol (MCP v2.0.0)** Server architecture.
 
 ---
 
@@ -17,7 +17,7 @@
 2. [Key Features](#2-key-features)
 3. [Complete System Architecture](#3-complete-system-architecture)
 4. [Complete Runtime Workflow](#4-complete-runtime-workflow)
-5. [AI Architecture (TinyLlama + Ollama + Official MCP)](#5-ai-architecture-tinyllama--ollama--official-mcp)
+5. [AI & Centralized Prompt Architecture](#5-ai--centralized-prompt-architecture)
 6. [Folder Structure](#6-folder-structure)
 7. [Technology Stack](#7-technology-stack)
 8. [Installation & Prerequisites](#8-installation--prerequisites)
@@ -44,11 +44,11 @@ The **MISRA C:2012 Compliance Platform** bridges deterministic static code analy
 3. **Risks of Unconstrained AI Auto-Fixing**: Raw LLMs can hallucinate non-existent standard library functions, alter pointer arithmetic, or introduce syntax errors in safety-critical code.
 
 ### The Solution: Human-in-the-Loop Remediation Workstation
-- **Deterministic AST Analysis**: Rule violations are identified at the node level by C99 AST visitors.
+- **Deterministic AST Analysis**: Exactly 10 MISRA rule violations are identified at the node level by C99 AST visitors.
 - **Interactive Monaco Diff Previews**: Every proposed fix is rendered as a side-by-side code diff preview using Monaco Editor (the editor engine powering VS Code).
 - **Developer Review Authority**: Engineers retain explicit control to **Accept**, **Reject**, **Skip**, or **Manually Refine** patches.
 - **Bottom-Up Patch Engine**: Auto-fixes are applied using descending byte offset replacements to prevent coordinate desynchronization, followed by post-patch AST re-parsing syntax validation.
-- **Decoupled Live MCP AI Integration**: AI explanations are generated strictly live at runtime by TinyLlama via an Official Model Context Protocol (MCP v2.0.0) Server (`mcp.server.Server`).
+- **Decoupled Live MCP AI Integration**: AI explanations are generated strictly live at runtime by TinyLlama via an Official Model Context Protocol (MCP v2.0.0) Server (`mcp.server.Server`) and centralized prompt management layer (`mcp_server/prompt_manager.py`).
 
 ---
 
@@ -59,8 +59,9 @@ The **MISRA C:2012 Compliance Platform** bridges deterministic static code analy
 - 📦 **Bottom-Up Bulk Auto-Patching**: Range replacement engine applying fixes in descending offset order with post-patch AST syntax verification.
 - 📐 **Counter Equation Invariants**: Guarantees $\text{Accepted} + \text{Rejected} + \text{Skipped} + \text{Manual} + \text{Remaining} = \text{Total Detected}$ holds mathematically true across all UI views and PDF reports.
 
-### AI Capabilities (TinyLlama via Official MCP)
-- 🤖 **Official Model Context Protocol (MCP v2.0.0) Server**: Standalone MCP server (`mcp.server.Server`) registering semantic tools (`generate_misra_explanation`, `answer_code_question`, `review_patch`).
+### AI Capabilities & Prompt Architecture
+- 🤖 **Official Model Context Protocol (MCP v2.0.0) Server**: Standalone MCP server (`mcp.server.Server`) registering 3 semantic tools (`generate_misra_explanation`, `answer_code_question`, `review_patch`).
+- 📁 **Centralized Prompt Management Layer**: Prompt templates are stored as standards-based Markdown files (`mcp_server/prompts/`) and loaded dynamically via `PromptManager` (`mcp_server/prompt_manager.py`). Zero hardcoded prompt strings exist in business logic.
 - 🧠 **Live Runtime TinyLlama Inference**: Generates structured explanations containing rule requirement, safety risk, AST analysis, recommended fix rationale, and impact metrics. Zero hardcoded explanation templates exist in the backend.
 - 🛡️ **Offline Availability Safeguards**: Catches connection errors when Ollama is offline and returns explicit status banners without fabricating replacement content.
 
@@ -81,7 +82,7 @@ The **MISRA C:2012 Compliance Platform** bridges deterministic static code analy
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                                   React 18 Frontend UI                                 │
 │                   (Analysis, Dashboard, Violations, Reports, Monaco Editor)            │
-└───────────────────────────────────────────┬────────────────────────────────────────────┘
+└───────────────────────────┬────────────────────────────────────────────────────────────┘
                                             │ REST API Calls (HTTP / JSON / Multipart)
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -100,13 +101,13 @@ The **MISRA C:2012 Compliance Platform** bridges deterministic static code analy
 ┌───────────────────────────────┐                               │      Official MCP Server       │
 │    MISRA AST Rule Engine      │                               │     (mcp_server/server.py)     │
 │ (10 AST Visitor BaseRule Modules)                             └───────────────┬────────────────┘
-└───────────────┬───────────────┘                                               │ LLM Query
+└───────────────┬───────────────┘                                               │ Load Prompt Template
                 │ Violations                                                    ▼
                 ▼                                               ┌────────────────────────────────┐
-┌───────────────────────────────┐                               │       AI Capabilities Layer    │
-│      Range Patch Engine       │                               │   (mcp_server/ai_provider.py)  │
+┌───────────────────────────────┐                               │   Centralized Prompt Manager   │
+│      Range Patch Engine       │                               │   (mcp_server/prompt_manager)  │
 │(backend/services/patch_engine)│                               └───────────────┬────────────────┘
-└───────────────────────────────┘                                               │ Ollama HTTP REST
+└───────────────────────────────┘                                               │ LLM Query
                                                                                 ▼
                                                                 ┌────────────────────────────────┐
                                                                 │     Local Ollama (TinyLlama)   │
@@ -139,7 +140,7 @@ The **MISRA C:2012 Compliance Platform** bridges deterministic static code analy
          ▼                        ▼                        ▼
 [ MCP Client Issues Tool ]  [ Accept/Reject/Skip ]  [ Bottom-Up Bulk Pass ]
          │                        │                        │
-[ MCP Server Runs Tool ]    [ Metric Counter Update ] [ Post-Patch AST Check ]
+[ MCP Server Loads Prompt ] [ Metric Counter Update ] [ Post-Patch AST Check ]
          │                        │                        │
 [ TinyLlama Model Infers ]        │                        │
          │                        │                        │
@@ -151,19 +152,22 @@ The **MISRA C:2012 Compliance Platform** bridges deterministic static code analy
 
 ---
 
-## 5. AI Architecture (TinyLlama + Ollama + Official MCP)
+## 5. AI & Centralized Prompt Architecture
 
-The platform implements a production-grade **Model Context Protocol (MCP v2.0.0)** server architecture that completely decouples backend application logic from LLM runtime execution.
+The platform implements a production-grade **Model Context Protocol (MCP v2.0.0)** server architecture featuring a centralized prompt management layer:
 
 ```
-React UI ──► FastAPI Backend ──► MCP Client ──► Official MCP Server ──► AI Provider Layer ──► Ollama ──► TinyLlama
+React UI ──► FastAPI Backend ──► MCP Client ──► Official MCP Server ──► PromptManager ──► AI Provider Layer ──► Ollama ──► TinyLlama
 ```
 
-### Architectural Guarantees
-1. **Zero Hardcoded Explanation Templates**: The legacy template dictionary (`RULE_EXPLANATION_TEMPLATES`) has been **completely purged**. Every violation explanation is generated via live model inference.
-2. **Backend Independence**: `backend/services/llm.py` contains **zero** Ollama URLs (`localhost:11434`), zero model names (`tinyllama`), zero prompt strings, and zero direct HTTP calls. It delegates tool calls to `MCPClient`.
-3. **Official MCP SDK**: `mcp_server/server.py` uses the official `mcp` SDK (`mcp.server.Server`) registering tool handlers for `"tools/list"` (`types.ListToolsRequest`) and `"tools/call"` (`types.CallToolRequestParams`).
-4. **Offline Resilience**: If Ollama or TinyLlama is offline, `OllamaProvider` catches the connection error and returns `is_available: False`. The UI displays a clear amber warning banner without fabricating fake text.
+### Centralized Prompt Management Layer (`mcp_server/prompts/` & `mcp_server/prompt_manager.py`)
+- **Standards-Based Markdown Templates**: Prompt definitions are maintained in clean Markdown files in `mcp_server/prompts/`:
+  - `misra_explanation.md`: Structured MISRA violation analysis prompt template.
+  - `code_qa.md`: Interactive developer C code question prompt template.
+  - `patch_review.md`: C code patch review prompt template.
+- **Dynamic Prompt Loading**: `PromptManager` (`mcp_server/prompt_manager.py`) loads templates dynamically and interpolates runtime context variables without embedding large prompt strings in Python source code.
+- **Zero Hardcoded Explanation Content**: Every violation explanation is generated strictly live at runtime by TinyLlama inference. Zero hardcoded rule explanation dictionaries or fallback content exist.
+- **Offline Resilience**: If Ollama or TinyLlama is offline, `OllamaProvider` catches the connection error and returns `is_available: False`. The UI displays a clear amber warning banner without fabricating fake text.
 
 ---
 
@@ -173,32 +177,37 @@ React UI ──► FastAPI Backend ──► MCP Client ──► Official MCP S
 MISRA_Project/
 ├── backend/                        # FastAPI Backend Application Root
 │   ├── api/
-│   │   └── main.py                 # FastAPI REST Routes & Controller
+│   │   └── main.py                 # FastAPI REST Routes & Controller (10 Endpoints)
 │   ├── mcp/
 │   │   └── client.py               # MCP Client (Issues Tool Calls to MCP Server)
 │   ├── models/
 │   │   └── violation.py            # Pydantic Schemas (RuleViolation, PatchPreview, etc.)
 │   ├── report/
 │   │   └── generator.py            # ReportLab PDF Compliance Report Generator
-│   ├── rules/                      # Deterministic AST MISRA Rule Visitor Suite
+│   ├── rules/                      # Deterministic AST MISRA Rule Visitor Suite (10 Modules)
 │   │   ├── base.py                 # Abstract BaseRule Visitor Interface
 │   │   ├── rule_2_2.py ... rule_16_4.py (10 AST Rule Visitors)
 │   │   └── __init__.py             # Exports ALL_RULES Visitor Array
-│   ├── services/
+│   ├── services/                   # Core Backend Domain Services (4 Services)
 │   │   ├── llm.py                  # Backend LLM Orchestration Wrapper
 │   │   ├── parser.py               # CParserPreProcessor & pycparser AST Service
 │   │   ├── patch.py                # Single Patch Adapter Shim
 │   │   └── patch_engine.py         # Range-Based Offset Patch & AST Validation Engine
-│   └── tests/                      # Automated Backend Pytest Test Suite
+│   └── tests/                      # Automated Backend Pytest Suite (6 Test Modules, 96 Tests)
 ├── mcp_server/                     # Standalone Model Context Protocol (MCP 2.0) Server
+│   ├── prompts/                    # Centralized Markdown Prompt Templates
+│   │   ├── code_qa.md              # Code QA Prompt Template
+│   │   ├── misra_explanation.md    # MISRA Explanation Prompt Template
+│   │   └── patch_review.md         # Patch Review Prompt Template
 │   ├── ai_provider.py              # Pluggable AI Capabilities Layer (Ollama / TinyLlama)
-│   ├── prompts.py                  # Centralized Prompt Engineering Engine
-│   └── server.py                   # Official MCP Server (mcp.server.Server)
+│   ├── prompt_manager.py           # Centralized Prompt Management Engine
+│   ├── prompts.py                  # Prompt Facade Wrapper Module
+│   └── server.py                   # Official MCP Server (mcp.server.Server, 3 MCP Tools)
 ├── frontend/                       # React 18 + TypeScript Web Application Root
 │   ├── src/
 │   │   ├── App.tsx                 # Application Shell & Tab Navigation
 │   │   ├── main.tsx                # React DOM Mount Entrypoint
-│   │   ├── components/             # UI Pages (Dashboard, Violations, Reports, etc.)
+│   │   ├── components/             # UI Components & Pages (6 Component Modules)
 │   │   ├── context/
 │   │   │   └── AppContext.tsx      # Global State Provider & Counter Metrics Engine
 │   │   └── types/
@@ -226,6 +235,7 @@ MISRA_Project/
 | **ASGI Server** | Uvicorn | `0.22+` | Asynchronous server gateway interface |
 | **C AST Parser** | pycparser | `2.21+` | Pure Python C99 AST parser & preprocessor |
 | **AI Protocol** | MCP SDK (`mcp`) | `2.0.0` | Standard Model Context Protocol Client/Server SDK |
+| **Prompt Layer** | Markdown Templates | Custom | Centralized standards-based prompt management layer |
 | **Local Model** | TinyLlama (via Ollama)| `1.1B` | Live runtime AI violation explanation & QA engine |
 | **PDF Generator** | ReportLab | `4.0+` | Programmatic PDF compliance report rendering |
 | **Testing** | Pytest | `8.0+` | Automated backend unit & integration testing |
@@ -299,7 +309,7 @@ Visualizes compliance score percentage, radial score gauge, severity distributio
 Left-hand violation tree displaying detected MISRA rule violations categorized by file. Selecting a violation opens the interactive Monaco side-by-side diff editor showing original C code vs proposed remediation.
 
 ### 3. Ask AI Modal (Live TinyLlama Inference)
-Clicking **Ask AI** invokes TinyLlama over official MCP to return structured analysis covering *What AI Found*, *Why It Matters*, *MISRA Requirement*, *AI AST Analysis*, *Recommended Fix Rationale*, and *Impact Analysis Grid*.
+Clicking **Ask AI** invokes TinyLlama over official MCP (using templates loaded via `PromptManager`) to return structured analysis covering *What AI Found*, *Why It Matters*, *MISRA Requirement*, *AI AST Analysis*, *Recommended Fix Rationale*, and *Impact Analysis Grid*.
 
 ### 4. Executive PDF Compliance Report
 Generates publication-grade PDF compliance reports containing executive gauges, severity tables, decision breakdown metrics, and sanitized violation logs.
@@ -336,6 +346,7 @@ Generates publication-grade PDF compliance reports containing executive gauges, 
 | `/api/generate-report` | `POST` | `ReportRequest` | Generates ReportLab PDF compliance report in OS temp storage |
 | `/api/download-pdf/{filename}` | `GET` | Path Parameter | Streams PDF compliance report and auto-deletes temp file |
 | `/api/download-zip` | `POST` | `DownloadZipRequest` | Packages corrected C files into a ZIP archive for folder mode |
+| `/api/generate-project-report` | `POST` | `ReportRequest` | Generates comprehensive project PDF report |
 
 ---
 
@@ -343,7 +354,7 @@ Generates publication-grade PDF compliance reports containing executive gauges, 
 
 - **Deterministic AST Engine**: 10 AST MISRA visitors producing location-independent stable SHA-256 violation IDs.
 - **Range Patch Generator**: 17-field `PatchPreview` payloads with descending offset bottom-up patching.
-- **MCP AI Integration**: 100% MCP v2.0.0 SDK server (`mcp_server/server.py`) and client (`backend/mcp/client.py`).
+- **MCP AI & Prompt Architecture**: 100% MCP v2.0.0 SDK server (`mcp_server/server.py`), client (`backend/mcp/client.py`), and centralized prompt manager (`mcp_server/prompt_manager.py`).
 - **Reporting**: Programmatic ReportLab PDF generation with clean string sanitization.
 
 ---
